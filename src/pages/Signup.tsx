@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/AppContext';
-import { User, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { User, Lock, ArrowRight, ShieldCheck, Mail, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Signup() {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { registerUser } = useAppStore();
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password || !confirmPassword) {
+    if (!username || !email || !password || !confirmPassword) {
       setError('Semua kolom harus diisi.');
       return;
     }
@@ -23,9 +25,17 @@ export default function Signup() {
       return;
     }
 
+    setIsLoading(true);
+    setError('');
+
     // Register user
-    registerUser({ username, password });
-    navigate('/home');
+    const result = await registerUser({ username, email, password });
+    if (result.success) {
+      navigate('/home');
+    } else {
+      setError(result.error || 'Gagal mendaftar. Silakan coba lagi.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -78,6 +88,22 @@ export default function Signup() {
             </div>
 
             <div className="space-y-1.5">
+              <label className="text-sm font-bold text-slate-700 pl-1">Email</label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                  <Mail size={20} />
+                </div>
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition-all"
+                  placeholder="Masukkan email aktif"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
               <label className="text-sm font-bold text-slate-700 pl-1">Kata Sandi</label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -111,16 +137,21 @@ export default function Signup() {
 
             <button 
               type="submit"
-              className="w-full h-14 bg-brand-600 text-white rounded-2xl font-bold text-lg mt-6 flex items-center justify-center gap-2 hover:bg-brand-700 transition-all active:scale-95 shadow-lg shadow-brand-500/30"
+              disabled={isLoading}
+              className="w-full h-14 bg-brand-600 text-white rounded-2xl font-bold text-lg mt-6 flex items-center justify-center gap-2 hover:bg-brand-700 transition-all active:scale-95 shadow-lg shadow-brand-500/30 disabled:opacity-70"
             >
-              Daftar Akun
-              <ArrowRight size={20} />
+              {isLoading ? (
+                <><Loader2 size={20} className="animate-spin" /> Memproses...</>
+              ) : (
+                <>Daftar Akun <ArrowRight size={20} /></>
+              )}
             </button>
           </form>
 
           <div className="mt-6 text-center text-sm font-medium text-slate-500">
             Sudah punya akun?{' '}
             <button 
+              type="button"
               onClick={() => navigate('/login')} 
               className="text-brand-600 font-bold hover:underline"
             >

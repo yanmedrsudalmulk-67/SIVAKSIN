@@ -1,92 +1,351 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../store/AppContext';
-import { User, Settings, Shield, LogOut, ChevronRight, HelpCircle, FileText, ChevronLeft, Camera, Save, Phone, MapPin, Hash, CheckCircle2, UploadCloud } from 'lucide-react';
+import { 
+  User, Settings, Shield, LogOut, ChevronRight, HelpCircle, 
+  FileText, ChevronLeft, Camera, Save, Phone, MapPin, Hash, 
+  CheckCircle2, UploadCloud, Database, Cloud, Loader2, ExternalLink,
+  Image as ImageIcon, Sparkles, RefreshCw, Check, AlertCircle, Trash2
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { uploadFileToSupabase } from '../services/supabaseStorageService';
+import { saveAppSettingsToSupabase, fetchAppSettingsFromSupabase } from '../services/appDataSupabaseService';
+import SupabaseConfigModal from '../components/SupabaseConfigModal';
 
 export default function Profile() {
-  const { user, role, setRole, logout, updateUser } = useAppStore();
+  const { user, role, logout, updateUser, isSupabaseOnline, refreshAllCloudData, appLogo, setAppLogo } = useAppStore();
   const navigate = useNavigate();
-  const [currentView, setCurrentView] = useState<'main' | 'edit_profile' | 'support_data'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'edit_profile' | 'support_data' | 'app_settings' | 'logo_settings'>('main');
 
-  const [editName, setEditName] = useState(user?.name || '');
-  const [editAvatar, setEditAvatar] = useState<string>(user?.avatar || '');
+  const [editName, setEditName] = useState(user?.name || user?.full_name || '');
+  const [editAvatar, setEditAvatar] = useState<string>(user?.avatar_url || user?.avatar || '');
+  
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(appLogo || localStorage.getItem('app_logo'));
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoSuccessMsg, setLogoSuccessMsg] = useState<string | null>(null);
+
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarSuccessMsg, setAvatarSuccessMsg] = useState<string | null>(null);
+  
+  const [isUploadingKtp, setIsUploadingKtp] = useState(false);
+  const [isUploadingPassport, setIsUploadingPassport] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const quickAvatarInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchAppSettingsFromSupabase().then(({ settings }) => {
+      if (settings?.app_logo) {
+        setLogoPreview(settings.app_logo);
+        setAppLogo(settings.app_logo);
+      } else {
+        const saved = localStorage.getItem('app_logo');
+        if (saved) setLogoPreview(saved);
+      }
+    });
+  }, [setAppLogo]);
 
   const [supportData, setSupportData] = useState({
     nik: user?.nik || '',
     alamat: user?.alamat || '',
     no_hp: user?.no_hp || '',
     no_passport: user?.no_passport || '',
-    ktp_file: user?.ktp_file || null,
-    passport_file: user?.passport_file || null
+    ktp_file: user?.ktp_file || (user?.ktp_url ? 'KTP_Supabase_Cloud.jpg' : null),
+    ktp_url: user?.ktp_url || '',
+    passport_file: user?.passport_file || (user?.passport_url ? 'Passport_Supabase_Cloud.jpg' : null),
+    passport_url: user?.passport_url || ''
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const supportFileInputRef = useRef<HTMLInputElement>(null);
-  const supportPassportFileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle avatar upload (works for both quick avatar button and edit profile)
+  const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setEditAvatar(event.target?.result as string);
-      };
-      reader.readAsDataURL(e.target.files[0]);
+      const file = e.target.files[0];
+      if (file.size > 8 * 1024 * 1024) {
+        alert('Ukuran foto profil maksimal 8MB.');
+        return;
+      }
+
+      setIsUploadingAvatar(true);
+      setAvatarSuccessMsg(null);
+
+      // Local preview
+      const previewUrl = URL.createObjectURL(file);
+      setEditAvatar(previewUrl);
+
+      try {
+        let finalUrl = previewUrl;
+
+        // Upload ke Supabase Storage (bucket assets / avatars / documents)
+        const result = await uploadFileToSupabase(file, 'assets', 'avatar');
+        if (result.url) {
+          finalUrl = result.url;
+        }
+
+        setEditAvatar(finalUrl);
+        localStorage.setItem('sivaksin_user_avatar', finalUrl);
+        
+        // Simpan langsung ke database Supabase tabel `users`
+        if (updateUser) {
+          await updateUser({ 
+            avatar_url: finalUrl, 
+            avatar: finalUrl,
+            name: editName || user?.name || user?.full_name 
+          });
+        }
+
+        setAvatarSuccessMsg('Foto profil berhasil diunggah & tersimpan di Supabase Cloud!');
+        setTimeout(() => setAvatarSuccessMsg(null), 4000);
+      } catch (err: any) {
+        console.error("Avatar upload error:", err.message);
+        alert('Gagal mengunggah foto profil: ' + (err.message || 'Terjadi kesalahan'));
+      } finally {
+        setIsUploadingAvatar(false);
+      }
     }
   };
 
-  const saveProfile = () => {
-    if (updateUser) {
-      updateUser({ name: editName, avatar: editAvatar });
+  const handleRemoveAvatar = async () => {
+    if (confirm('Hapus foto profil dan kembalikan ke inisial huruf nama?')) {
+      setIsUploadingAvatar(true);
+      try {
+        setEditAvatar('');
+        localStorage.removeItem('sivaksin_user_avatar');
+        if (updateUser) {
+          await updateUser({ avatar_url: '', avatar: '' });
+        }
+        setAvatarSuccessMsg('Foto profil berhasil dihapus dan kembali ke inisial.');
+        setTimeout(() => setAvatarSuccessMsg(null), 3000);
+      } catch (e: any) {
+        alert('Gagal menghapus foto profil: ' + e.message);
+      } finally {
+        setIsUploadingAvatar(false);
+      }
     }
-    setCurrentView('main');
   };
 
-  const saveSupportData = () => {
+  const saveProfile = async () => {
     if (updateUser) {
-      updateUser({ 
-        nik: supportData.nik, 
-        alamat: supportData.alamat, 
-        no_hp: supportData.no_hp, 
-        no_passport: supportData.no_passport,
-        ktp_file: supportData.ktp_file,
-        passport_file: supportData.passport_file
+      await updateUser({ 
+        name: editName, 
+        avatar_url: editAvatar || user?.avatar_url, 
+        avatar: editAvatar || user?.avatar 
       });
     }
     setCurrentView('main');
   };
 
+  const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Ukuran logo maksimal 5 MB.');
+        return;
+      }
+      setLogoFile(file);
+      const objectUrl = URL.createObjectURL(file);
+      setLogoPreview(objectUrl);
+    }
+  };
+
+  const handleApplyLogo = async () => {
+    if (!logoFile && !logoPreview) return;
+    setIsUploadingLogo(true);
+    setLogoSuccessMsg(null);
+
+    try {
+      let finalLogoUrl = logoPreview;
+
+      if (logoFile) {
+        if (isSupabaseConfigured) {
+          const uploadResult = await uploadFileToSupabase(logoFile, 'assets', 'app_logo');
+          if (uploadResult.url) {
+            finalLogoUrl = uploadResult.url;
+            await saveAppSettingsToSupabase({ app_logo: uploadResult.url });
+          }
+        } else {
+          // Read base64
+          const reader = new FileReader();
+          await new Promise<void>((resolve) => {
+            reader.onload = (e) => {
+              if (e.target?.result) {
+                finalLogoUrl = e.target.result as string;
+              }
+              resolve();
+            };
+            reader.readAsDataURL(logoFile);
+          });
+        }
+      }
+
+      if (finalLogoUrl) {
+        setAppLogo(finalLogoUrl);
+        setLogoPreview(finalLogoUrl);
+        setLogoSuccessMsg('Logo aplikasi berhasil diperbarui di Welcome, Login, Beranda, & Sidebar!');
+        setTimeout(() => setLogoSuccessMsg(null), 4000);
+      }
+    } catch (err: any) {
+      alert('Gagal menyimpan logo: ' + err.message);
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleResetLogo = async () => {
+    if (confirm('Kembalikan logo aplikasi ke logo standar default?')) {
+      setAppLogo(null);
+      setLogoPreview(null);
+      setLogoFile(null);
+      if (isSupabaseConfigured) {
+        await saveAppSettingsToSupabase({ app_logo: null });
+      }
+      setLogoSuccessMsg('Logo dikembalikan ke standar default.');
+      setTimeout(() => setLogoSuccessMsg(null), 3000);
+    }
+  };
+
+  const handleSupportKtpUpload = async (file: File) => {
+    setIsUploadingKtp(true);
+    try {
+      const res = await uploadFileToSupabase(file, 'documents', 'ktp');
+      if (res.url) {
+        setSupportData(prev => ({
+          ...prev,
+          ktp_file: file.name,
+          ktp_url: res.url!
+        }));
+      } else {
+        setSupportData(prev => ({ ...prev, ktp_file: file.name }));
+      }
+    } catch (e) {
+      setSupportData(prev => ({ ...prev, ktp_file: file.name }));
+    } finally {
+      setIsUploadingKtp(false);
+    }
+  };
+
+  const handleSupportPassportUpload = async (file: File) => {
+    setIsUploadingPassport(true);
+    try {
+      const res = await uploadFileToSupabase(file, 'documents', 'passport');
+      if (res.url) {
+        setSupportData(prev => ({
+          ...prev,
+          passport_file: file.name,
+          passport_url: res.url!
+        }));
+      } else {
+        setSupportData(prev => ({ ...prev, passport_file: file.name }));
+      }
+    } catch (e) {
+      setSupportData(prev => ({ ...prev, passport_file: file.name }));
+    } finally {
+      setIsUploadingPassport(false);
+    }
+  };
+
+  const saveSupportData = async () => {
+    if (updateUser) {
+      await updateUser({ 
+        nik: supportData.nik, 
+        alamat: supportData.alamat, 
+        no_hp: supportData.no_hp, 
+        no_passport: supportData.no_passport,
+        ktp_file: supportData.ktp_file,
+        ktp_url: supportData.ktp_url,
+        passport_file: supportData.passport_file,
+        passport_url: supportData.passport_url
+      });
+    }
+    setCurrentView('main');
+  };
+
+  // User avatar URL
+  const currentAvatar = user?.avatar_url || user?.avatar || editAvatar || localStorage.getItem('sivaksin_user_avatar');
+
+  // VIEW: EDIT PROFIL & UPLOAD FOTO
   const renderEditProfile = () => (
-    <div className="bg-slate-50 min-h-screen relative w-full h-full flex flex-col">
-      <div className="bg-white/80 backdrop-blur-xl px-4 py-4 sticky top-0 z-40 shadow-sm border-b border-slate-100 flex items-center gap-3">
-        <button onClick={() => setCurrentView('main')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors">
-          <ChevronLeft className="text-slate-700" />
-        </button>
-        <h1 className="font-bold text-lg text-slate-800">Ubah Profil</h1>
+    <div className="bg-slate-50 min-h-screen relative w-full h-full flex flex-col font-sans">
+      <div className="bg-white px-4 py-4 sticky top-0 z-40 shadow-xs border-b border-slate-200">
+        <div className="max-w-3xl mx-auto flex items-center gap-3 w-full">
+          <button onClick={() => setCurrentView('main')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer">
+            <ChevronLeft className="text-slate-700" />
+          </button>
+          <h1 className="font-bold text-lg text-slate-800">Ubah Foto & Profil Pengguna</h1>
+        </div>
       </div>
 
-      <div className="px-6 py-8 flex-1 flex flex-col items-center">
-        <div className="relative mb-8">
-          <div className="w-28 h-28 bg-gradient-to-br from-brand-500 to-indigo-600 text-white rounded-full flex items-center justify-center text-4xl font-bold shadow-md overflow-hidden border-4 border-white">
-            {editAvatar ? (
-              <img src={editAvatar} alt="Profile" className="w-full h-full object-cover" />
+      <div className="px-6 py-8 flex-1 flex flex-col items-center max-w-2xl mx-auto w-full">
+        
+        {/* Avatar Upload Container */}
+        <div className="relative mb-6">
+          <div 
+            onClick={() => avatarInputRef.current?.click()}
+            className="w-32 h-32 bg-gradient-to-tr from-blue-600 to-cyan-500 rounded-full flex items-center justify-center text-4xl font-bold shadow-xl overflow-hidden border-4 border-white cursor-pointer hover:opacity-95 transition-opacity"
+            title="Klik untuk memilih foto profil baru"
+          >
+            {currentAvatar ? (
+              <img src={currentAvatar} alt="Foto Profil" className="w-full h-full object-cover" />
             ) : (
-               user?.name?.charAt(0) || 'U'
+              <span className="text-white font-black text-4xl">
+                {(user?.name || user?.full_name || 'U').charAt(0).toUpperCase()}
+              </span>
             )}
           </div>
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute bottom-0 right-0 w-10 h-10 bg-brand-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white hover:bg-brand-500 transition-colors"
-          >
-            <Camera size={18} />
-          </button>
+
           <input 
             type="file" 
             accept="image/*" 
-            ref={fileInputRef} 
-            onChange={handleAvatarChange} 
+            ref={avatarInputRef} 
+            onChange={handleAvatarFileSelect} 
             className="hidden" 
           />
         </div>
+
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={isUploadingAvatar}
+            className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            {isUploadingAvatar ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+            <span>{isUploadingAvatar ? 'Mengunggah Foto ke Supabase...' : 'Unggah / Ganti Foto Profil'}</span>
+          </button>
+
+          {currentAvatar && (
+            <button
+              type="button"
+              onClick={handleRemoveAvatar}
+              disabled={isUploadingAvatar}
+              className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+              title="Hapus foto profil dan gunakan inisial"
+            >
+              <Trash2 size={13} />
+              <span>Hapus Foto</span>
+            </button>
+          )}
+        </div>
+
+        {/* Supabase Storage & DB Status Indicator */}
+        <div className="w-full mb-4 px-3.5 py-2 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-center justify-between text-[11px] text-blue-800">
+          <div className="flex items-center gap-1.5">
+            <Cloud size={14} className="text-blue-600 shrink-0" />
+            <span className="font-semibold">Penyimpanan Cloud Supabase:</span>
+          </div>
+          <span className="font-bold text-blue-700 bg-white px-2 py-0.5 rounded-md shadow-2xs border border-blue-100">
+            Tabel users & Storage assets
+          </span>
+        </div>
+
+        {avatarSuccessMsg && (
+          <div className="w-full mb-4 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span>{avatarSuccessMsg}</span>
+          </div>
+        )}
 
         <div className="w-full space-y-4">
           <div className="space-y-1.5">
@@ -99,248 +358,603 @@ export default function Profile() {
                 type="text" 
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition-all"
+                className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
                 placeholder="Nama lengkap Anda"
               />
             </div>
           </div>
         </div>
 
-        <div className="mt-auto pt-8 w-full">
+        <div className="mt-8 w-full">
           <button 
+            type="button"
             onClick={saveProfile}
-            className="w-full h-14 bg-brand-600 text-white rounded-2xl font-bold text-lg flex items-center justify-center gap-2 hover:bg-brand-700 transition-all active:scale-95 shadow-lg shadow-brand-500/30"
+            disabled={isUploadingAvatar}
+            className="w-full h-14 bg-blue-600 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
           >
-            <Save size={20} />
-            Simpan Perubahan
+            <Save size={18} />
+            <span>Simpan Profil</span>
           </button>
         </div>
       </div>
     </div>
   );
 
-  const renderSupportData = () => (
-    <div className="bg-slate-50 min-h-screen relative w-full h-full flex flex-col">
-      <div className="bg-white/80 backdrop-blur-xl px-4 py-4 sticky top-0 z-40 shadow-sm border-b border-slate-100 flex items-center gap-3">
-        <button onClick={() => setCurrentView('main')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors">
-          <ChevronLeft className="text-slate-700" />
-        </button>
-        <h1 className="font-bold text-lg text-slate-800">Data Pendukung</h1>
+  // VIEW: PENGATURAN LOGO APLIKASI
+  const renderLogoSettings = () => (
+    <div className="bg-slate-50 min-h-screen relative w-full h-full flex flex-col font-sans">
+      <div className="bg-white px-4 py-4 sticky top-0 z-40 shadow-xs border-b border-slate-200">
+        <div className="max-w-3xl mx-auto flex items-center gap-3 w-full">
+          <button onClick={() => setCurrentView('main')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer">
+            <ChevronLeft className="text-slate-700" />
+          </button>
+          <h1 className="font-bold text-lg text-slate-800">Pengaturan Logo Aplikasi</h1>
+        </div>
       </div>
 
-      <div className="px-6 py-6 flex-1 flex flex-col overflow-y-auto">
-        <div className="w-full space-y-4">
-          
-          <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 pl-1">Nomor KTP (NIK)</label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                <Hash size={20} />
-              </div>
-              <input 
-                type="text" 
-                value={supportData.nik}
-                onChange={(e) => setSupportData({...supportData, nik: e.target.value})}
-                className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-brand-500 transition-all"
-                placeholder="16 Digit NIK"
-              />
-            </div>
+      <div className="p-6 max-w-3xl mx-auto w-full space-y-6">
+        
+        {logoSuccessMsg && (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2.5 shadow-xs">
+            <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+            <span>{logoSuccessMsg}</span>
+          </div>
+        )}
+
+        {/* Upload Box */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div>
+            <h3 className="font-black text-slate-900 text-base">Unggah Logo Aplikasi SIVAKSIN</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Logo yang diunggah akan otomatis ditampilkan di <strong>Welcome Page</strong>, <strong>Halaman Login</strong>, <strong>Header Halaman Utama</strong>, dan <strong>Sidebar Navigator</strong>.
+            </p>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 pl-1">Alamat Lengkap</label>
-            <div className="relative">
-              <div className="absolute left-4 top-4 text-slate-400">
-                <MapPin size={20} />
-              </div>
-              <textarea 
-                value={supportData.alamat}
-                onChange={(e) => setSupportData({...supportData, alamat: e.target.value})}
-                className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-brand-500 transition-all min-h-[100px]"
-                placeholder="Alamat domisili"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 pl-1">Nomor HP</label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                <Phone size={20} />
-              </div>
-              <input 
-                type="tel" 
-                value={supportData.no_hp}
-                onChange={(e) => setSupportData({...supportData, no_hp: e.target.value})}
-                className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-brand-500 transition-all"
-                placeholder="0812xxxxxxxx"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 pl-1">Nomor Passport</label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                <FileText size={20} />
-              </div>
-              <input 
-                type="text" 
-                value={supportData.no_passport}
-                onChange={(e) => setSupportData({...supportData, no_passport: e.target.value})}
-                className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-brand-500 transition-all"
-                placeholder="Nomor Passport"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 pl-1">Upload KTP</label>
-            <label className="border-2 border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-slate-500 bg-white/50 hover:bg-white transition-colors cursor-pointer relative overflow-hidden">
-              <input type="file" accept="image/*,.pdf" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={(e) => {
-                if(e.target.files && e.target.files[0]) {
-                   setSupportData({...supportData, ktp_file: e.target.files[0].name });
-                }
-              }} />
-              {supportData.ktp_file ? (
-                  <div className="text-center">
-                    <div className="w-8 h-8 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-1"><CheckCircle2 size={16} /></div>
-                    <span className="text-[11px] font-bold text-slate-700 block truncate max-w-[200px]">{supportData.ktp_file}</span>
-                  </div>
+          <div className="border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-3xl p-6 flex flex-col items-center justify-center text-center space-y-4">
+            <div className="w-28 h-28 bg-white rounded-3xl p-2 shadow-md border border-slate-200 flex items-center justify-center overflow-hidden">
+              {logoPreview ? (
+                <img src={logoPreview} alt="Preview Logo" className="w-full h-full object-contain" />
               ) : (
-                <>
-                  <UploadCloud size={20} className="mb-1" />
-                  <span className="text-[11px] font-medium text-center">Tap untuk upload<br/>(Max 2MB)</span>
-                </>
+                <div className="flex flex-col items-center justify-center text-slate-400">
+                  <ImageIcon size={36} />
+                  <span className="text-[10px] font-bold mt-1">Belum Ada Logo</span>
+                </div>
               )}
-            </label>
+            </div>
+
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 active:scale-95 transition-all cursor-pointer"
+              >
+                <UploadCloud size={16} />
+                <span>Pilih File Logo (PNG/JPG/SVG)</span>
+              </button>
+              <p className="text-[11px] text-slate-400 font-medium">Maksimal ukuran 5MB, format transparan disarankan</p>
+            </div>
+
+            <input 
+              type="file" 
+              accept="image/*" 
+              ref={logoInputRef} 
+              onChange={handleLogoFileSelect} 
+              className="hidden" 
+            />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 pl-1">Upload Passport</label>
-            <label className="border-2 border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-slate-500 bg-white/50 hover:bg-white transition-colors cursor-pointer relative overflow-hidden">
-              <input type="file" accept="image/*,.pdf" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={(e) => {
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleApplyLogo}
+              disabled={isUploadingLogo}
+              className="w-full sm:flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isUploadingLogo ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
+              <span>{isUploadingLogo ? 'Menyimpan Logo...' : 'Terapkan & Simpan Logo Aplikasi'}</span>
+            </button>
+
+            {logoPreview && (
+              <button
+                type="button"
+                onClick={handleResetLogo}
+                className="w-full sm:w-auto px-4 h-12 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-2xl flex items-center justify-center gap-1.5 border border-rose-200 transition-all cursor-pointer"
+              >
+                <Trash2 size={14} />
+                <span>Reset Logo Default</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Live Preview Placement Cards */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <Sparkles size={16} className="text-amber-500" />
+            <span>Simulasi Tampilan Logo di Berbagai Halaman:</span>
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Preview Welcome Page */}
+            <div className="bg-gradient-to-br from-indigo-950 via-blue-900 to-cyan-700 rounded-2xl p-4 text-center text-white space-y-2 border border-blue-800">
+              <p className="text-[10px] font-bold text-cyan-200 uppercase tracking-wider">Welcome Page</p>
+              <div className="w-14 h-14 bg-white rounded-2xl mx-auto p-1.5 shadow-md flex items-center justify-center overflow-hidden">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo Welcome" className="w-full h-full object-contain" />
+                ) : (
+                  <Shield className="text-blue-600" size={24} />
+                )}
+              </div>
+              <p className="text-xs font-black tracking-wider">SIVAKSIN</p>
+            </div>
+
+            {/* Preview Login Page */}
+            <div className="bg-gradient-to-br from-indigo-950 via-blue-900 to-cyan-700 rounded-2xl p-4 text-center text-white space-y-2 border border-blue-800">
+              <p className="text-[10px] font-bold text-cyan-200 uppercase tracking-wider">Login Page</p>
+              <div className="w-12 h-12 bg-white rounded-xl mx-auto p-1 shadow-md flex items-center justify-center overflow-hidden">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo Login" className="w-full h-full object-contain" />
+                ) : (
+                  <Shield className="text-blue-600" size={20} />
+                )}
+              </div>
+              <p className="text-[11px] font-bold">Masuk Akun SIVAKSIN</p>
+            </div>
+
+            {/* Preview Header / Sidebar */}
+            <div className="bg-[#003B73] rounded-2xl p-4 text-center text-white space-y-2 border border-blue-900">
+              <p className="text-[10px] font-bold text-cyan-200 uppercase tracking-wider">Header & Sidebar</p>
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-10 h-10 bg-white rounded-xl p-1 shadow-md flex items-center justify-center overflow-hidden">
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="Logo Sidebar" className="w-full h-full object-contain" />
+                  ) : (
+                    <Shield className="text-blue-600" size={16} />
+                  )}
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-black leading-none">SIVAKSIN</p>
+                  <p className="text-[9px] text-blue-200 font-medium">RSUD Al-Mulk</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+
+  // VIEW: DATA PENDUKUNG
+  const renderSupportData = () => (
+    <div className="bg-slate-50 min-h-screen relative w-full h-full flex flex-col font-sans">
+      <div className="bg-white px-4 py-4 sticky top-0 z-40 shadow-xs border-b border-slate-200">
+        <div className="max-w-3xl mx-auto flex items-center gap-3 w-full">
+          <button onClick={() => setCurrentView('main')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer">
+            <ChevronLeft className="text-slate-700" />
+          </button>
+          <h1 className="font-bold text-lg text-slate-800">Data Pendukung Pasien</h1>
+        </div>
+      </div>
+
+      <div className="px-6 py-6 flex-1 flex flex-col overflow-y-auto max-w-3xl mx-auto w-full space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-sm font-bold text-slate-700 pl-1">Nomor KTP (NIK)</label>
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+              <Hash size={20} />
+            </div>
+            <input 
+              type="text" 
+              value={supportData.nik}
+              onChange={(e) => setSupportData({...supportData, nik: e.target.value})}
+              className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-blue-500 transition-all"
+              placeholder="16 Digit NIK"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-bold text-slate-700 pl-1">Alamat Lengkap</label>
+          <div className="relative">
+            <div className="absolute left-4 top-4 text-slate-400">
+              <MapPin size={20} />
+            </div>
+            <textarea 
+              value={supportData.alamat}
+              onChange={(e) => setSupportData({...supportData, alamat: e.target.value})}
+              className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-blue-500 transition-all min-h-[100px]"
+              placeholder="Alamat domisili"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-bold text-slate-700 pl-1">Nomor HP / WhatsApp</label>
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+              <Phone size={20} />
+            </div>
+            <input 
+              type="tel" 
+              value={supportData.no_hp}
+              onChange={(e) => setSupportData({...supportData, no_hp: e.target.value})}
+              className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-blue-500 transition-all"
+              placeholder="0812xxxxxxxx"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-bold text-slate-700 pl-1">Nomor Passport</label>
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+              <FileText size={20} />
+            </div>
+            <input 
+              type="text" 
+              value={supportData.no_passport}
+              onChange={(e) => setSupportData({...supportData, no_passport: e.target.value})}
+              className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-blue-500 transition-all"
+              placeholder="Nomor Passport"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between pl-1">
+            <label className="text-sm font-bold text-slate-700">Upload KTP</label>
+            {supportData.ktp_url && (
+              <a href={supportData.ktp_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 font-bold flex items-center gap-1 hover:underline">
+                Lihat di Cloud <ExternalLink size={12} />
+              </a>
+            )}
+          </div>
+          <label className="border-2 border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-slate-500 bg-white/50 hover:bg-white transition-colors cursor-pointer relative overflow-hidden">
+            <input 
+              type="file" 
+              accept="image/*,.pdf" 
+              disabled={isUploadingKtp}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+              onChange={(e) => {
                 if(e.target.files && e.target.files[0]) {
-                   setSupportData({...supportData, passport_file: e.target.files[0].name });
+                  handleSupportKtpUpload(e.target.files[0]);
                 }
-              }} />
-              {supportData.passport_file ? (
-                  <div className="text-center">
-                    <div className="w-8 h-8 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-1"><CheckCircle2 size={16} /></div>
-                    <span className="text-[11px] font-bold text-slate-700 block truncate max-w-[200px]">{supportData.passport_file}</span>
-                  </div>
-              ) : (
-                <>
-                  <UploadCloud size={20} className="mb-1" />
-                  <span className="text-[11px] font-medium text-center">Tap untuk upload<br/>(Max 2MB)</span>
-                </>
-              )}
-            </label>
-          </div>
+              }} 
+            />
+            {isUploadingKtp ? (
+              <div className="text-center py-2">
+                <Loader2 size={24} className="animate-spin text-blue-600 mx-auto mb-1" />
+                <span className="text-xs font-bold text-slate-600">Mengunggah ke Supabase...</span>
+              </div>
+            ) : supportData.ktp_file ? (
+              <div className="text-center">
+                <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-1"><CheckCircle2 size={16} /></div>
+                <span className="text-[11px] font-bold text-slate-700 block truncate max-w-[200px]">{supportData.ktp_file}</span>
+                <span className="text-[10px] text-emerald-600 font-semibold">Tersimpan di Cloud</span>
+              </div>
+            ) : (
+              <>
+                <UploadCloud size={20} className="mb-1 text-slate-400" />
+                <span className="text-[11px] font-medium text-center">Tap untuk upload KTP (Max 5MB)</span>
+              </>
+            )}
+          </label>
+        </div>
 
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between pl-1">
+            <label className="text-sm font-bold text-slate-700">Upload Passport</label>
+            {supportData.passport_url && (
+              <a href={supportData.passport_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 font-bold flex items-center gap-1 hover:underline">
+                Lihat di Cloud <ExternalLink size={12} />
+              </a>
+            )}
+          </div>
+          <label className="border-2 border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-slate-500 bg-white/50 hover:bg-white transition-colors cursor-pointer relative overflow-hidden">
+            <input 
+              type="file" 
+              accept="image/*,.pdf" 
+              disabled={isUploadingPassport}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+              onChange={(e) => {
+                if(e.target.files && e.target.files[0]) {
+                  handleSupportPassportUpload(e.target.files[0]);
+                }
+              }} 
+            />
+            {isUploadingPassport ? (
+              <div className="text-center py-2">
+                <Loader2 size={24} className="animate-spin text-blue-600 mx-auto mb-1" />
+                <span className="text-xs font-bold text-slate-600">Mengunggah ke Supabase...</span>
+              </div>
+            ) : supportData.passport_file ? (
+              <div className="text-center">
+                <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-1"><CheckCircle2 size={16} /></div>
+                <span className="text-[11px] font-bold text-slate-700 block truncate max-w-[200px]">{supportData.passport_file}</span>
+                <span className="text-[10px] text-emerald-600 font-semibold">Tersimpan di Cloud</span>
+              </div>
+            ) : (
+              <>
+                <UploadCloud size={20} className="mb-1 text-slate-400" />
+                <span className="text-[11px] font-medium text-center">Tap untuk upload Passport (Max 5MB)</span>
+              </>
+            )}
+          </label>
         </div>
 
         <div className="mt-8 pb-8 pt-4 w-full">
           <button 
+            type="button"
             onClick={saveSupportData}
-            className="w-full h-14 bg-brand-600 text-white rounded-2xl font-bold text-lg flex items-center justify-center gap-2 hover:bg-brand-700 transition-all active:scale-95 shadow-lg shadow-brand-500/30"
+            className="w-full h-14 bg-blue-600 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-500/20 cursor-pointer"
           >
-            <Save size={20} />
-            Simpan Data
+            <Save size={18} />
+            <span>Simpan Data Pendukung</span>
           </button>
         </div>
       </div>
     </div>
   );
 
+  // VIEW: PENGATURAN APLIKASI
+  const renderAppSettings = () => (
+    <div className="bg-slate-50 min-h-screen relative w-full h-full flex flex-col font-sans">
+       <div className="bg-white px-4 py-4 sticky top-0 z-40 shadow-xs border-b border-slate-200">
+         <div className="max-w-3xl mx-auto flex items-center gap-3 w-full">
+           <button onClick={() => setCurrentView('main')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer">
+             <ChevronLeft className="text-slate-700" />
+           </button>
+           <h1 className="font-bold text-lg text-slate-800">Pengaturan Sistem & Database</h1>
+         </div>
+       </div>
+ 
+       <div className="p-6 max-w-3xl mx-auto w-full space-y-6">
+         {/* Supabase Cloud Connection Status Card */}
+         <div className="p-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Database size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800">Supabase Cloud Database</h3>
+                  <p className="text-xs text-slate-500">Penyimpanan Terpusat & Realtime</p>
+                </div>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                isSupabaseOnline 
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${isSupabaseOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+                {isSupabaseOnline ? 'Online / Terhubung' : 'Offline / Sesi Lokal'}
+              </span>
+            </div>
+            
+            <p className="text-xs text-slate-600 leading-relaxed mb-4">
+              Semua data input vaksin, booking pasien, profil pengguna, dan file upload (KTP, Passport, Logo) dikonfigurasikan agar langsung tersimpan di Supabase Cloud.
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              <button 
+                type="button"
+                onClick={() => setIsSupabaseModalOpen(true)}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <Settings size={14} />
+                Konfigurasi Kunci API Supabase
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  refreshAllCloudData();
+                  alert('Sinkronisasi data dari Supabase Cloud dimulai...');
+                }}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw size={14} />
+                Sinkronisasi Ulang Data
+              </button>
+            </div>
+         </div>
+       </div>
+
+       <SupabaseConfigModal 
+         isOpen={isSupabaseModalOpen} 
+         onClose={() => setIsSupabaseModalOpen(false)} 
+         onSaved={refreshAllCloudData} 
+       />
+    </div>
+  );
+
   if (currentView === 'edit_profile') return renderEditProfile();
+  if (currentView === 'logo_settings') return renderLogoSettings();
   if (currentView === 'support_data') return renderSupportData();
+  if (currentView === 'app_settings') return renderAppSettings();
 
   return (
-    <div className="bg-slate-50 min-h-screen relative w-full h-full">
-      <div className="absolute top-10 -right-10 w-48 h-48 bg-health-200/40 rounded-full blur-[60px] pointer-events-none"></div>
+    <div className="bg-slate-50 min-h-screen relative w-full h-full font-sans pb-12">
       
-      <div className="bg-white/80 backdrop-blur-xl px-6 py-4 sticky top-0 z-40 shadow-sm border-b border-slate-100/50 mb-4">
-        <h1 className="font-bold text-xl text-slate-800">Profil Saya</h1>
+      {/* Hidden file input for quick avatar upload */}
+      <input 
+        type="file" 
+        accept="image/*" 
+        ref={quickAvatarInputRef} 
+        onChange={handleAvatarFileSelect} 
+        className="hidden" 
+      />
+
+      <div className="bg-white px-6 py-4 sticky top-0 z-40 shadow-xs border-b border-slate-200 mb-6">
+        <div className="max-w-3xl mx-auto w-full">
+          <h1 className="font-bold text-xl text-slate-800">Profil & Pengaturan</h1>
+        </div>
       </div>
 
-      <div className="px-6 pb-6 space-y-6 relative z-10">
-        <div className="glass-card rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4 relative overflow-hidden">
-          <div className="absolute right-0 bottom-0 opacity-10">
-            <User size={120} />
+      <div className="px-4 sm:px-6 space-y-6 relative z-10 max-w-3xl mx-auto w-full">
+        
+        {/* User Card with Quick Avatar Upload */}
+        <div className="rounded-3xl p-6 shadow-sm border border-slate-200 bg-white flex flex-col sm:flex-row items-center sm:items-start gap-5 relative overflow-hidden">
+          
+          {/* Avatar Container */}
+          <div className="relative shrink-0">
+            <div 
+              onClick={() => quickAvatarInputRef.current?.click()}
+              className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-tr from-blue-600 to-cyan-500 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-md overflow-hidden border-2 border-white cursor-pointer"
+              title="Foto Profil Pengguna"
+            >
+              {currentAvatar ? (
+                <img src={currentAvatar} alt="Foto Profil" className="w-full h-full object-cover" />
+              ) : (
+                (user?.name || user?.full_name || 'U').charAt(0).toUpperCase()
+              )}
+            </div>
           </div>
-          <div className="w-16 h-16 bg-gradient-to-br from-brand-500 to-indigo-600 text-white rounded-full flex items-center justify-center text-2xl font-bold shadow-md z-10 overflow-hidden border-2 border-white">
-            {user?.avatar ? (
-              <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              user?.name?.charAt(0) || 'U'
-            )}
-          </div>
-          <div className="z-10">
-            <h2 className="text-xl font-bold text-slate-800">{user?.name || 'User'}</h2>
-            <p className="text-sm text-slate-500">{user?.email || 'user@example.com'}</p>
-            <div className="mt-1 inline-block px-2 py-0.5 bg-brand-100 text-brand-700 text-[10px] font-bold rounded uppercase tracking-wider">
-              {role}
+
+          {/* User Details */}
+          <div className="flex-1 text-center sm:text-left min-w-0">
+            <h2 className="text-xl font-black text-slate-900 truncate">
+              {user?.name || user?.full_name || 'Pengguna RSUD Al-Mulk'}
+            </h2>
+            <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
+              {user?.email || 'pasien@sivaksin.id'}
+            </p>
+            
+            <div className="mt-2.5 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-lg uppercase tracking-wider border border-blue-200">
+                {role === 'admin' ? 'Administrator' : 'Pasien Terdaftar'}
+              </span>
+              <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-lg flex items-center gap-1 border ${
+                isSupabaseOnline ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
+              }`}>
+                <Cloud size={10} /> {isSupabaseOnline ? 'Supabase Terhubung' : 'Lokal'}
+              </span>
+            </div>
+
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => quickAvatarInputRef.current?.click()}
+                className="text-xs text-blue-600 hover:text-blue-800 font-bold underline underline-offset-2"
+              >
+                + Tambah / Upload Foto Profil Baru
+              </button>
             </div>
           </div>
         </div>
 
+        {/* Menu Section */}
         <div className="space-y-3">
-          <h3 className="font-bold text-slate-800 pl-2">Pengaturan</h3>
-          <div className="glass-card rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <MenuItem icon={<User />} label="Ubah Profil" onClick={() => setCurrentView('edit_profile')} />
-            <div className="h-px bg-slate-100/50 mx-4" />
-            <MenuItem icon={<FileText />} label="Data Pendukung (KTP/Passport)" onClick={() => setCurrentView('support_data')} />
-            <div className="h-px bg-slate-100/50 mx-4" />
-            <MenuItem icon={<Settings />} label="Pengaturan Aplikasi" />
+          <h3 className="font-black text-slate-800 text-xs uppercase tracking-wider pl-2">
+            Pengaturan & Logo
+          </h3>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
+            <MenuItem 
+              icon={<User className="text-blue-600" />} 
+              label="Ubah Profil & Foto Pengguna" 
+              sublabel="Atur foto profil avatar dan nama lengkap pengguna"
+              onClick={() => setCurrentView('edit_profile')} 
+            />
+            <MenuItem 
+              icon={<ImageIcon className="text-cyan-600" />} 
+              label="Pengaturan Logo Aplikasi" 
+              sublabel="Atur logo untuk Welcome page, Login page, Header, & Sidebar"
+              onClick={() => setCurrentView('logo_settings')} 
+            />
+            <MenuItem 
+              icon={<FileText className="text-indigo-600" />} 
+              label="Data Pendukung (KTP & Passport)" 
+              sublabel="Kelola nomor identitas, alamat, dan berkas pasien"
+              onClick={() => setCurrentView('support_data')} 
+            />
+            <MenuItem 
+              icon={<Database className="text-emerald-600" />} 
+              label="Integrasi & Database Supabase Cloud" 
+              sublabel="Pengaturan sinkronisasi database cloud realtime"
+              onClick={() => setIsSupabaseModalOpen(true)} 
+            />
           </div>
         </div>
 
         <div className="space-y-3">
-          <h3 className="font-bold text-slate-800 pl-2">Bantuan & Info</h3>
-          <div className="glass-card rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <MenuItem icon={<HelpCircle />} label="Pusat Bantuan (FAQ)" />
-            <div className="h-px bg-slate-100/50 mx-4" />
-            <MenuItem icon={<Shield />} label="Kebijakan Privasi" />
+          <h3 className="font-black text-slate-800 text-xs uppercase tracking-wider pl-2">
+            Bantuan & Kebijakan
+          </h3>
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
+            <MenuItem 
+              icon={<HelpCircle className="text-slate-500" />} 
+              label="Pusat Bantuan & Layanan RSUD Al-Mulk" 
+              sublabel="Panduan vaksinasi internasional dan kontak klinik"
+            />
+            <MenuItem 
+              icon={<Shield className="text-slate-500" />} 
+              label="Kebijakan Privasi & Keamanan Medis" 
+              sublabel="Standar perlindungan data rekam medis pasien"
+            />
           </div>
         </div>
 
         {role === 'admin' && (
           <button 
+            type="button"
             onClick={() => navigate('/admin')}
-            className="w-full bg-brand-900 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-brand-800 flex items-center justify-center gap-2"
+            className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl shadow-lg hover:bg-slate-800 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
           >
             <Shield size={18} />
-            Masuk ke Admin Panel
+            <span>Masuk ke Panel Administrator</span>
           </button>
         )}
 
         <button 
+          type="button"
           onClick={() => {
             if (logout) logout();
-            navigate('/');
+            navigate('/login');
           }}
-          className="w-full bg-white text-red-500 font-bold py-4 rounded-xl shadow-sm border border-red-100 flex items-center justify-center gap-2 mt-8"
+          className="w-full bg-white text-rose-600 font-bold py-3.5 rounded-2xl shadow-xs border border-rose-200 flex items-center justify-center gap-2 cursor-pointer hover:bg-rose-50 transition-colors active:scale-95"
         >
           <LogOut size={18} />
-          Keluar
+          <span>Keluar dari Akun</span>
         </button>
       </div>
+
+      <SupabaseConfigModal 
+        isOpen={isSupabaseModalOpen} 
+        onClose={() => setIsSupabaseModalOpen(false)} 
+        onSaved={refreshAllCloudData} 
+      />
     </div>
   );
 }
 
-function MenuItem({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick?: () => void }) {
+function MenuItem({ 
+  icon, 
+  label, 
+  sublabel,
+  onClick 
+}: { 
+  icon: React.ReactNode; 
+  label: string; 
+  sublabel?: string;
+  onClick?: () => void;
+}) {
   return (
     <div 
       onClick={onClick}
-      className="flex items-center justify-between p-4 bg-white active:bg-slate-50 cursor-pointer transition-colors"
+      className="flex items-center justify-between p-4 sm:p-5 bg-white hover:bg-slate-50 active:bg-slate-100 cursor-pointer transition-colors"
     >
-      <div className="flex items-center gap-3 text-slate-700 font-medium text-sm">
-        {React.cloneElement(icon as React.ReactElement, { size: 20, className: 'text-slate-400' })}
-        {label}
+      <div className="flex items-center gap-3.5 min-w-0">
+        <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="font-bold text-slate-800 text-sm truncate">{label}</p>
+          {sublabel && <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{sublabel}</p>}
+        </div>
       </div>
-      <ChevronRight size={18} className="text-slate-300" />
+      <ChevronRight size={18} className="text-slate-300 shrink-0 ml-2" />
     </div>
   );
 }

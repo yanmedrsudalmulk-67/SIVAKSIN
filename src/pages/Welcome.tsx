@@ -1,17 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, ShieldCheck, Calendar, FileSignature } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Shield, Syringe, Calendar, FileSignature } from 'lucide-react';
+import { useAppStore } from '../store/AppContext';
 
 export default function Welcome() {
   const navigate = useNavigate();
+  const { appLogo } = useAppStore();
+  const [logoUrl, setLogoUrl] = useState<string | null>(appLogo || localStorage.getItem('app_logo'));
+
+  useEffect(() => {
+    setLogoUrl(appLogo || localStorage.getItem('app_logo'));
+    const handleUpdate = () => {
+      setLogoUrl(localStorage.getItem('app_logo'));
+    };
+    window.addEventListener('app_logo_updated', handleUpdate);
+    return () => window.removeEventListener('app_logo_updated', handleUpdate);
+  }, [appLogo]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative overflow-hidden font-sans">
       {/* Top Blue Header matching dashboard */}
-      <div className="absolute top-0 inset-x-0 h-[60%] bg-brand-900 rounded-b-[60px] shadow-xl overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -right-32 w-80 h-80 bg-brand-500 rounded-full mix-blend-screen filter blur-3xl opacity-30"></div>
-        <div className="absolute bottom-10 -left-20 w-60 h-60 bg-indigo-500 rounded-full mix-blend-screen filter blur-3xl opacity-20"></div>
+      <div className="absolute top-0 inset-x-0 h-[60%] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 rounded-b-[60px] shadow-xl overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -right-32 w-80 h-80 bg-cyan-400 rounded-full mix-blend-screen filter blur-3xl opacity-30"></div>
+        <div className="absolute bottom-10 -left-20 w-60 h-60 bg-blue-500 rounded-full mix-blend-screen filter blur-3xl opacity-20"></div>
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
       </div>
 
@@ -24,10 +36,13 @@ export default function Welcome() {
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="relative w-36 h-36 mb-8 flex items-center justify-center"
           >
-            {/* Glass background for logo */}
-            <div className="absolute inset-0 bg-white/10 rounded-[2.5rem] backdrop-blur-xl border border-white/30 shadow-[0_0_40px_rgba(255,255,255,0.1)]"></div>
-            <div className="absolute inset-2 bg-gradient-to-b from-white/20 to-transparent rounded-[2rem] pointer-events-none"></div>
-            <ShieldCheck className="text-white w-20 h-20 drop-shadow-lg relative z-10" strokeWidth={1.5} />
+            {/* Solid white background for logo */}
+            <div className="absolute inset-0 bg-white rounded-[2.5rem] shadow-[0_8px_32px_rgba(0,0,0,0.1)]"></div>
+            {logoUrl ? (
+               <img src={logoUrl} alt="Logo" className="absolute inset-0 w-full h-full object-cover rounded-[2.5rem] z-10" />
+            ) : (
+               <ShieldCheck className="text-blue-600 w-20 h-20 drop-shadow-sm relative z-10" strokeWidth={1.5} />
+            )}
           </motion.div>
 
           {/* Title & Subtitles */}
@@ -110,7 +125,7 @@ export default function Welcome() {
               />
 
               <div className="relative z-10 w-full h-full flex items-center justify-center">
-                <span className="text-[17px] font-black text-brand-900 tracking-wide pr-2">Ayo Mulai</span>
+                <span className="text-xl font-black text-brand-600 tracking-wide pr-2">Ayo Mulai</span>
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-brand-600 flex items-center justify-center shadow-md">
                   <motion.div
                     animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}

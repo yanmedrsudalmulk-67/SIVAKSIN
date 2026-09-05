@@ -17,6 +17,7 @@ import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Certificate from './pages/Certificate';
 import Status from './pages/Status';
+import AnafilaktikKit from './pages/AnafilaktikKit';
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/status" element={<Status />} />
           </Route>
 
+          <Route path="/anafilaktik" element={<AnafilaktikKit />} />
           <Route path="/admin" element={<Admin />} />
         </Routes>
       </BrowserRouter>

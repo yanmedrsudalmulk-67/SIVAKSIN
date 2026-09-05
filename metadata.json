@@ -1,6 +1,8 @@
 {
   "name": "SIVAKSIN",
-  "description": "Sistem Informasi Vaksinasi Internasional untuk layanan booking online vaksinasi internasional",
+  "description": "Sistem Informasi Vaksinasi Internasional untuk layanan booking online vaksinasi internasional dan monitoring Anafilaktik Kit RSUD Al-Mulk",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

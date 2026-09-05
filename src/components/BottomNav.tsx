@@ -11,20 +11,36 @@ export function BottomNav() {
   if (hidePaths.includes(location.pathname)) return null;
 
   return (
-    <nav className="fixed bottom-0 w-full max-w-md mx-auto bg-white/80 backdrop-blur-2xl border-t border-slate-100 px-6 flex items-center justify-between z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.04)] pb-[calc(0.25rem+env(safe-area-inset-bottom))] pt-2">
-      <NavItem to="/home" icon={<Home size={24} />} label="Home" />
-      <NavItem to="/history" icon={<Calendar size={24} />} label="Jadwal" />
-      
-      {/* Center prominent button for Register */}
-      <div 
-        onClick={() => navigate('/register')}
-        className="relative -top-5 w-[60px] h-[60px] bg-gradient-to-tr from-[#2563eb] to-[#4f46e5] rounded-full flex items-center justify-center text-white shadow-[0_8px_20px_rgba(37,99,235,0.3)] border-[4px] border-white cursor-pointer active:scale-95 transition-transform hover:shadow-[0_12px_25px_rgba(37,99,235,0.4)]"
-      >
-        <Plus size={28} strokeWidth={2.5} />
+    <nav className="fixed bottom-0 inset-x-0 w-full max-w-md mx-auto z-50 md:hidden print:hidden">
+      {/* Background with exact SVG curve matching the image */}
+      <div className="absolute inset-x-0 bottom-0 h-[76px] flex pointer-events-none drop-shadow-[0_-2px_10px_rgba(0,0,0,0.04)] bg-transparent items-end z-0">
+        <div className="flex-1 bg-white h-full"></div>
+        <svg width="120" height="76" viewBox="0 0 120 76" xmlns="http://www.w3.org/2000/svg" className="bg-transparent flex-shrink-0">
+          <path 
+            d="M0,0.5 C16,0.5 20,3 26,16 C34,42 42,65 60,65 C78,65 86,42 94,16 C100,3 104,0.5 120,0.5 L120,76 L0,76 Z" 
+            fill="#ffffff" 
+          />
+        </svg>
+        <div className="flex-1 bg-white h-full"></div>
       </div>
-      
-      <NavItem to="/notifications" icon={<Bell size={24} />} label="Notif" />
-      <NavItem to="/profile" icon={<User size={24} />} label="Profil" />
+
+      <div className="relative h-[76px] pb-[env(safe-area-inset-bottom)] px-3 sm:px-6 flex items-center justify-between z-10 w-full">
+        <NavItem to="/home" icon={<Home size={24} />} label="Home" />
+        <NavItem to="/history" icon={<Calendar size={24} />} label="Jadwal" />
+        
+        {/* Center floating button perfectly nested in the curve with a gap */}
+        <div className="relative -translate-y-3 flex items-center justify-center w-[72px]">
+          <div 
+            onClick={() => navigate('/register')}
+            className="w-[52px] h-[52px] bg-gradient-to-br from-[#0F3DDE] to-[#06B6D4] rounded-full flex items-center justify-center cursor-pointer shadow-[0_6px_16px_rgba(15,61,222,0.4)] hover:shadow-lg transition-all active:scale-95"
+          >
+            <Plus size={28} strokeWidth={2.5} className="text-white" />
+          </div>
+        </div>
+        
+        <NavItem to="/notifications" icon={<Bell size={24} />} label="Notif" />
+        <NavItem to="/profile" icon={<User size={24} />} label="Profil" />
+      </div>
     </nav>
   );
 }
@@ -34,19 +50,19 @@ function NavItem({ to, icon, label }: { to: string, icon: React.ReactNode, label
     <NavLink 
       to={to} 
       className={({ isActive }) => cn(
-        "flex flex-col items-center justify-center transition-all w-16 h-12 relative",
-        isActive ? "text-[#2563eb]" : "text-slate-400 hover:text-slate-600"
+        "flex flex-col items-center justify-center w-[60px] h-full transition-colors pt-2",
+        isActive ? "text-[#10487D]" : "text-[#475569] hover:text-[#334155]"
       )}
     >
       {({ isActive }) => (
         <>
-          <div className={cn("transition-all duration-300 absolute", isActive ? "-translate-y-2 opacity-100" : "translate-y-0 opacity-100")}>
+          <div className="mb-1.5 flex justify-center w-full">
             {React.cloneElement(icon as React.ReactElement, { 
-              strokeWidth: isActive ? 2.5 : 1.5,
-              className: isActive ? "text-[#2563eb]" : "text-slate-400"
+              strokeWidth: isActive ? 2 : 1.5,
+              className: cn("transition-all duration-300 mx-auto", isActive ? "scale-105" : "")
             })}
           </div>
-          <span className={cn("text-[9px] font-extrabold tracking-widest uppercase transition-all duration-300 absolute bottom-0 text-[#2563eb]", isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")}>
+          <span className="text-[10px] font-normal leading-none text-center tracking-wide">
             {label}
           </span>
         </>

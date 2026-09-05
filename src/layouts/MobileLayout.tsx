@@ -1,20 +1,23 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { DesktopSidebar } from '../components/DesktopSidebar';
 
 export default function MobileLayout() {
   return (
-    <div className="min-h-screen mesh-bg flex items-center justify-center p-0 sm:p-4 md:p-8 relative overflow-hidden w-full">
-      {/* Decorative large blurred blobs in the background */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-500/20 rounded-full blur-[100px] pointer-events-none hidden sm:block"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-health-500/20 rounded-full blur-[100px] pointer-events-none hidden sm:block"></div>
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row relative w-full overflow-x-hidden font-sans">
+      {/* Desktop & Landscape Sidebar (Blue theme with white icons/text) */}
+      <DesktopSidebar />
 
-      <div className="w-full max-w-md mx-auto bg-slate-50 min-h-screen sm:min-h-[850px] sm:h-[850px] sm:rounded-[48px] sm:border-[8px] sm:border-slate-900 shadow-[0_40px_100px_rgba(0,0,0,0.5)] overflow-hidden relative flex flex-col pt-safe px-safe z-10 custom-mobile-frame">
-        <div className="flex-1 overflow-y-auto hide-scrollbar pb-24 h-full relative z-10 w-full bg-slate-50">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 pb-24 md:pb-8 relative">
+        <main className="flex-1 w-full">
           <Outlet />
-        </div>
-        <BottomNav />
+        </main>
       </div>
+
+      {/* Mobile Bottom Navigation - automatically hidden on md: and print */}
+      <BottomNav />
     </div>
   );
 }

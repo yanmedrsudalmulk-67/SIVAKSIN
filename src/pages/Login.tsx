@@ -1,15 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/AppContext';
-import { ShieldCheck, User, Lock, ArrowRight, Activity } from 'lucide-react';
+import { ShieldCheck, User, Lock, ArrowRight, Activity, Eye, EyeOff, Syringe, FileText, Plane, Shield, Loader2, MessageCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { loginUser } = useAppStore();
+  const { loginUser, appLogo } = useAppStore();
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(appLogo || localStorage.getItem('app_logo'));
+  useEffect(() => {
+    setLogoUrl(appLogo || localStorage.getItem('app_logo'));
+    const handleUpdate = () => {
+      setLogoUrl(localStorage.getItem('app_logo'));
+    };
+    window.addEventListener('app_logo_updated', handleUpdate);
+    return () => window.removeEventListener('app_logo_updated', handleUpdate);
+  }, [appLogo]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,99 +30,166 @@ export default function Login() {
       return;
     }
 
+    setIsLoading(true);
+    setError('');
+    
+    // Simulate slight network delay for premium feel if it's very fast
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
     const success = await loginUser({ username, password, email: username });
     if (success) {
       navigate('/home');
     } else {
-      setError('Username atau kata sandi tidak sesuai. Jika belum punya akun, silakan daftar.');
+      setError('Email atau kata sandi tidak sesuai. Jika belum punya akun, silakan daftar.');
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col relative font-sans">
-      <div className="absolute top-0 inset-x-0 h-64 bg-brand-900 rounded-b-[40px] shadow-lg pointer-events-none overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-60 h-60 bg-brand-500 rounded-full mix-blend-screen filter blur-3xl opacity-30"></div>
+    <div className="min-h-screen bg-slate-50 flex flex-col relative font-sans overflow-x-hidden">
+      {/* Header Hero Premium */}
+      <div className="absolute top-0 inset-x-0 h-[30vh] min-h-[220px] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 overflow-hidden pointer-events-none z-0">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
+        {/* Soft Glow */}
+        <div className="absolute -top-32 -right-32 w-[500px] h-[500px] bg-cyan-400 rounded-full mix-blend-screen filter blur-[120px] opacity-40"></div>
+        <div className="absolute top-20 -left-20 w-[400px] h-[400px] bg-blue-500 rounded-full mix-blend-screen filter blur-[100px] opacity-30"></div>
+        
+        {/* Transparent background icons */}
+        <motion.div animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="absolute top-1/4 right-8 text-white/10">
+          <Plane size={80} strokeWidth={1} />
+        </motion.div>
+        <motion.div animate={{ y: [0, 20, 0], rotate: [0, -10, 0] }} transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }} className="absolute top-1/3 left-6 text-white/10">
+          <Syringe size={100} strokeWidth={1} />
+        </motion.div>
+        <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }} className="absolute bottom-24 right-1/3 text-white/10">
+          <Shield size={60} strokeWidth={1} />
+        </motion.div>
+        <motion.div animate={{ y: [0, 15, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 0.5 }} className="absolute top-10 left-1/3 text-white/10">
+          <FileText size={70} strokeWidth={1} />
+        </motion.div>
+
+        {/* Wave curve bottom */}
+        <div className="absolute bottom-0 inset-x-0 translate-y-[1px]">
+          <svg viewBox="0 0 1440 120" className="w-full h-auto fill-slate-50 relative z-10" preserveAspectRatio="none">
+            <path d="M0,60 C320,120 420,0 720,0 C1020,0 1120,120 1440,60 L1440,120 L0,120 Z"></path>
+          </svg>
+        </div>
       </div>
 
-      <div className="flex-1 flex flex-col w-full max-w-md mx-auto relative z-10 px-6 pt-16 pb-8">
+      <div className="flex-1 flex flex-col w-full max-w-md mx-auto relative z-10 px-6 pt-8 pb-4">
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-8"
+          className="text-center mb-6"
         >
-          <div className="w-20 h-20 bg-white/10 rounded-2xl backdrop-blur-md border border-white/20 mx-auto flex items-center justify-center mb-4 shadow-xl">
-            <Activity className="text-white w-10 h-10" />
-          </div>
-          <h1 className="text-3xl font-black text-white tracking-wide">Masuk</h1>
-          <p className="text-blue-100 text-sm mt-1">SIVAKSIN RSUD Al-Mulk</p>
+          <motion.div 
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="relative w-20 h-20 bg-white mx-auto flex items-center justify-center mb-3 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[20px]"
+          >
+            {logoUrl ? (
+               <img src={logoUrl} alt="Logo" className="w-full h-full object-cover rounded-[20px] z-10" />
+            ) : (
+               <Activity className="text-blue-600 w-10 h-10 stroke-[2px]" />
+            )}
+          </motion.div>
+          <h1 className="text-3xl font-black text-white tracking-widest drop-shadow-md">SIVAKSIN</h1>
+          <p className="text-cyan-100 text-[11px] font-bold tracking-widest uppercase mt-1 drop-shadow-sm opacity-90">UOBK RSUD AL-MULK KOTA SUKABUMI</p>
         </motion.div>
 
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 flex-1 relative"
+          className="bg-white/95 rounded-[32px] p-6 sm:p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white/80 flex-1 relative mb-6 backdrop-blur-md flex flex-col justify-center"
         >
+          <div className="mb-6">
+            <h2 className="text-[20px] font-extrabold text-slate-800 mb-2 leading-tight tracking-tight">Selamat Datang Kembali</h2>
+            <p className="text-slate-500 text-[13px] font-medium leading-relaxed pr-4">Masuk untuk melanjutkan layanan SIVAKSIN</p>
+          </div>
+
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm mb-4 font-medium">
-              {error}
-            </div>
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-red-50 text-red-600 p-3 rounded-[16px] text-sm mb-4 font-semibold flex items-start gap-3 border border-red-100">
+              <div className="mt-0.5"><Shield size={16} className="text-red-500" /></div>
+              <span>{error}</span>
+            </motion.div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-sm font-bold text-slate-700 pl-1">Username</label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[13px] font-bold text-slate-700 pl-1">Username / Email</label>
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                   <User size={20} />
                 </div>
                 <input 
                   type="text" 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition-all"
-                  placeholder="Masukkan username"
+                  className="w-full bg-slate-50/80 border border-slate-200 hover:border-slate-300 rounded-[20px] py-[18px] pl-12 pr-4 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/10 transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-medium text-[15px]"
+                  placeholder="Contoh: budi.santoso"
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-bold text-slate-700 pl-1">Kata Sandi</label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+            <div className="space-y-2">
+              <label className="text-[13px] font-bold text-slate-700 pl-1">Kata Sandi</label>
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
                   <Lock size={20} />
                 </div>
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-slate-800 font-medium focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition-all"
-                  placeholder="Masukkan kata sandi"
+                  className="w-full bg-slate-50/80 border border-slate-200 hover:border-slate-300 rounded-[20px] py-[18px] pl-12 pr-12 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/10 transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-medium text-[15px]"
+                  placeholder="••••••••"
                 />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              <div className="flex justify-end pt-2">
+                <a href="#" className="flex-1 text-right text-[13px] font-bold text-blue-600 hover:text-blue-700 transition-colors">Lupa Kata Sandi?</a>
               </div>
             </div>
 
             <button 
               type="submit"
-              className="w-full h-14 bg-brand-600 text-white rounded-2xl font-bold text-lg mt-4 flex items-center justify-center gap-2 hover:bg-brand-700 transition-all active:scale-95 shadow-lg shadow-brand-500/30"
+              disabled={isLoading}
+              className="w-full h-[52px] relative overflow-hidden bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[18px] font-bold text-[15px] mt-6 flex items-center justify-center gap-2 hover:shadow-[0_12px_25px_-8px_rgba(14,165,233,0.6)] transition-all duration-300 active:scale-[0.97] group border border-blue-500/20 disabled:opacity-80 disabled:cursor-wait"
             >
-              Masuk
-              <ArrowRight size={20} />
+              {isLoading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin text-white/90" /> 
+                  <span className="opacity-90">Memproses...</span>
+                </>
+              ) : (
+                <>
+                  Masuk
+                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform opacity-90" />
+                </>
+              )}
             </button>
           </form>
 
-          <div className="mt-8 text-center text-sm font-medium text-slate-500">
-            Jamaah belum punya akun?{' '}
+          <div className="mt-6 text-center text-[13px] font-semibold text-slate-500">
+            Belum punya akun?{' '}
             <button 
+              type="button"
               onClick={() => navigate('/signup')} 
-              className="text-brand-600 font-bold hover:underline"
+              className="text-blue-600 font-bold hover:text-blue-700 hover:underline transition-all ml-1 underline-offset-4"
             >
-              Daftar Akun
+              Daftar Sekarang
             </button>
           </div>
         </motion.div>
-      </div>
+
+        </div>
     </div>
   );
 }
