@@ -120,10 +120,10 @@ export default function Home() {
             {logoUrl && (
               <div 
                 onClick={() => navigate('/profile')}
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-[18px] bg-white p-1 shadow-md border border-white/40 overflow-hidden cursor-pointer hover:scale-105 transition-transform shrink-0"
+                className="w-12 h-12 sm:w-13 sm:h-13 rounded-[18px] bg-white p-0.5 shadow-md border border-white/40 overflow-hidden cursor-pointer hover:scale-105 transition-transform shrink-0 flex items-center justify-center"
                 title="Logo Aplikasi SIVAKSIN"
               >
-                <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5 transform scale-105" />
               </div>
             )}
           </div>

@@ -135,7 +135,7 @@ export default function Certificate() {
         {/* Tombol Aksi */}
         {certBooking && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-           <button className="bg-white p-3 rounded-[20px] border border-slate-100/50 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform hover:border-brand-200 group cursor-pointer">
+           <button onClick={handlePrint} className="bg-white p-3 rounded-[20px] border border-slate-100/50 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform hover:border-brand-200 group cursor-pointer">
               <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-[14px] flex items-center justify-center group-hover:scale-105 transition-transform"><Download size={22} /></div>
               <span className="text-[10px] font-bold text-slate-600 text-center leading-tight">Download PDF</span>
            </button>

@@ -1,8 +1,8 @@
 import html2canvas, { Options } from 'html2canvas';
 
 /**
- * Sanitizes CSS text and element styles to convert any unsupported "oklch" color functions
- * into standard hex or rgba colors before html2canvas parses them.
+ * Sanitizes CSS text and element styles to convert any unsupported modern color functions
+ * (like "oklch", "oklab", "lab", "lch", "color") into standard hex/rgb/rgba colors before html2canvas parses them.
  */
 export const renderHtmlToCanvas = async (
   element: HTMLElement,
@@ -11,31 +11,41 @@ export const renderHtmlToCanvas = async (
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  const convertOklch = (str: string): string => {
-    if (!str || typeof str !== 'string' || !str.includes('oklch')) return str;
-    return str.replace(/oklch\([^)]+\)/gi, (match) => {
-      if (!ctx) return 'rgb(128, 128, 128)';
+  const fallbackParseColor = (colorStr: string): string => {
+    // If we cannot convert, return a safe solid/transparent color so html2canvas doesn't throw
+    if (colorStr.includes('0%') || colorStr.includes(' 0 /') || colorStr.includes(', 0)')) {
+      return 'rgba(0, 0, 0, 0)';
+    }
+    return 'rgb(100, 116, 139)'; // safe slate-500
+  };
+
+  const convertModernColors = (str: string): string => {
+    if (!str || typeof str !== 'string') return str;
+    if (!/oklch|oklab|lab\(|lch\(|color\(/i.test(str)) return str;
+
+    return str.replace(/(?:oklch|oklab|lab|lch|color)\([^)]+\)/gi, (match) => {
+      if (!ctx) return fallbackParseColor(match);
       try {
         ctx.fillStyle = '#000000'; // reset
         ctx.fillStyle = match;
         const res = ctx.fillStyle;
-        if (res && res !== '#000000' && !res.includes('oklch')) {
+        if (res && res !== '#000000' && !/oklch|oklab|lab|lch|color/i.test(res)) {
           return res;
         }
-        return 'rgb(128, 128, 128)';
+        return fallbackParseColor(match);
       } catch {
-        return 'rgb(128, 128, 128)';
+        return fallbackParseColor(match);
       }
     });
   };
 
   const customOnClone = (clonedDoc: Document, clonedElement: HTMLElement) => {
-    // 1. Process all <style> elements
+    // 1. Process all <style> elements in cloned document
     try {
       const styleEls = Array.from(clonedDoc.querySelectorAll('style'));
       styleEls.forEach((styleEl) => {
-        if (styleEl.textContent && styleEl.textContent.includes('oklch')) {
-          styleEl.textContent = convertOklch(styleEl.textContent);
+        if (styleEl.textContent && /oklch|oklab|lab\(|lch\(|color\(/i.test(styleEl.textContent)) {
+          styleEl.textContent = convertModernColors(styleEl.textContent);
         }
       });
     } catch (e) {
@@ -50,8 +60,8 @@ export const renderHtmlToCanvas = async (
           if (rules) {
             Array.from(rules).forEach((rule) => {
               const styleRule = rule as CSSStyleRule;
-              if (styleRule.style && styleRule.style.cssText && styleRule.style.cssText.includes('oklch')) {
-                styleRule.style.cssText = convertOklch(styleRule.style.cssText);
+              if (styleRule.style && styleRule.style.cssText && /oklch|oklab|lab\(|lch\(|color\(/i.test(styleRule.style.cssText)) {
+                styleRule.style.cssText = convertModernColors(styleRule.style.cssText);
               }
             });
           }
@@ -68,31 +78,34 @@ export const renderHtmlToCanvas = async (
       const allEls = Array.from(clonedDoc.querySelectorAll('*'));
       allEls.forEach((el) => {
         const htmlEl = el as HTMLElement;
-        if (htmlEl.style && htmlEl.style.cssText && htmlEl.style.cssText.includes('oklch')) {
-          htmlEl.style.cssText = convertOklch(htmlEl.style.cssText);
+        if (htmlEl.style && htmlEl.style.cssText && /oklch|oklab|lab\(|lch\(|color\(/i.test(htmlEl.style.cssText)) {
+          htmlEl.style.cssText = convertModernColors(htmlEl.style.cssText);
         }
 
-        // Check computed styles and set inline RGB values for any oklch color properties
+        // Check computed styles and set inline RGB values for any unsupported color properties
         try {
           const computed = clonedDoc.defaultView?.getComputedStyle(htmlEl);
           if (computed) {
             const props = [
               'color',
+              'background',
               'backgroundColor',
+              'backgroundImage',
               'borderColor',
-              'fill',
-              'stroke',
               'borderTopColor',
               'borderBottomColor',
               'borderLeftColor',
               'borderRightColor',
+              'fill',
+              'stroke',
               'outlineColor',
-              'boxShadow'
+              'boxShadow',
+              'textShadow'
             ];
             props.forEach((prop) => {
               const val = computed.getPropertyValue(prop);
-              if (val && val.includes('oklch')) {
-                const converted = convertOklch(val);
+              if (val && /oklch|oklab|lab\(|lch\(|color\(/i.test(val)) {
+                const converted = convertModernColors(val);
                 htmlEl.style.setProperty(prop, converted, 'important');
               }
             });
