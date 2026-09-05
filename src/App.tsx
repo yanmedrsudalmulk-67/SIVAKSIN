@@ -17,6 +17,7 @@ import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Certificate from './pages/Certificate';
 import Status from './pages/Status';
+import Notifications from './pages/Notifications';
 import AnafilaktikKit from './pages/AnafilaktikKit';
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/register" element={<Register />} />
             <Route path="/history" element={<History />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/certificate" element={<Certificate />} />
             <Route path="/status" element={<Status />} />

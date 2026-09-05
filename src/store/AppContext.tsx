@@ -3,6 +3,9 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   fetchVaccinesFromSupabase,
   updateVaccineStockInSupabase,
+  createVaccineInSupabase,
+  updateVaccineInSupabase,
+  deleteVaccineFromSupabase,
   fetchBookingsFromSupabase,
   createBookingInSupabase,
   updateBookingStatusInSupabase,
@@ -20,17 +23,34 @@ export interface Vaccine {
   price: number;
   stock: number;
   description: string;
-  benefits: string[];
+  benefits?: string[];
+  category?: 'Wajib' | 'Dianjurkan' | 'Rutin';
+  protectionDuration?: string;
 }
 
 export interface Booking {
   id: string;
   vaccineId: string;
+  vaccineIds?: string[];
   date: string;
   time: string;
   status: 'menunggu' | 'terverifikasi' | 'selesai';
   patient: any;
   user_id?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  userId?: string;
+  bookingId?: string;
+  type: 'document_revision' | 'document_verified' | 'booking_status' | 'general';
+  title: string;
+  message: string;
+  documentType?: 'ktp' | 'passport' | 'all';
+  adminName?: string;
+  createdAt: string;
+  read: boolean;
+  actionUrl?: string;
 }
 
 interface AppState {
@@ -39,7 +59,9 @@ interface AppState {
   bookings: Booking[];
   vaccines: Vaccine[];
   users: any[];
+  notifications: AppNotification[];
   isSupabaseOnline: boolean;
+  isLoadingCloud: boolean;
   appLogo: string | null;
 }
 
@@ -50,12 +72,22 @@ interface AppContextType extends AppState {
   updateUser: (updates: any) => Promise<void>;
   addBooking: (booking: Booking) => Promise<void>;
   updateBookingStatus: (id: string, status: Booking['status']) => Promise<void>;
+  addVaccine: (vaccine: Vaccine) => Promise<{ success: boolean; error?: string }>;
+  updateVaccine: (id: string, updates: Partial<Vaccine>) => Promise<{ success: boolean; error?: string }>;
+  deleteVaccine: (id: string) => Promise<{ success: boolean; error?: string }>;
   updateVaccineStock: (id: string, newStock: number) => Promise<void>;
   deleteBooking: (id: string) => Promise<void>;
   registerUser: (userData: any) => Promise<{success: boolean, error?: string}>;
   loginUser: (userData: any) => Promise<boolean>;
   logout: () => void;
   refreshAllCloudData: () => Promise<void>;
+  addNotification: (notification: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => void;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
+  deleteNotification: (id: string) => void;
+  requestDocumentRevision: (bookingId: string, docType: 'ktp' | 'passport' | 'all', instructionMessage: string) => Promise<void>;
+  verifyDocumentApproval: (bookingId: string) => Promise<void>;
+  reuploadDocument: (bookingId: string, docType: 'ktp' | 'passport', fileUrl: string, fileName?: string) => Promise<void>;
 }
 
 const defaultVaccines: Vaccine[] = [
@@ -118,6 +150,17 @@ const defaultBookings: Booking[] = [
   }
 ];
 
+const defaultNotifications: AppNotification[] = [
+  {
+    id: 'notif_welcome',
+    title: 'Selamat Datang di SIVAKSIN RSUD Al-Mulk',
+    message: 'Layanan pendaftaran vaksinasi internasional beroperasi setiap hari Senin - Jum\'at pukul 08.00 - 14.00 WIB. Pastikan dokumen KTP & Paspor Anda terbaca jelas.',
+    type: 'general',
+    createdAt: new Date().toISOString(),
+    read: false,
+  }
+];
+
 const loadStorage = (key: string, fallback: any) => {
   try {
     const item = localStorage.getItem(key);
@@ -143,8 +186,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [bookings, setBookingsState] = useState<Booking[]>(() => loadStorage('sivaksin_bookings', defaultBookings));
   const [vaccines, setVaccinesState] = useState<Vaccine[]>(() => loadStorage('sivaksin_vaccines', defaultVaccines));
   const [users, setUsersState] = useState<any[]>(() => loadStorage('sivaksin_users', defaultUsers));
+  const [notifications, setNotificationsState] = useState<AppNotification[]>(() => loadStorage('sivaksin_notifications', defaultNotifications));
   const [appLogo, setAppLogoState] = useState<string | null>(() => localStorage.getItem('app_logo') || null);
   const [isSupabaseOnline, setIsSupabaseOnline] = useState<boolean>(isSupabaseConfigured);
+  const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [, setIsLoading] = useState(true);
 
   const setAppLogo = (newLogo: string | null) => {
@@ -200,6 +245,158 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const resolved = typeof newUsers === 'function' ? newUsers(prev) : newUsers;
       saveStorage('sivaksin_users', resolved);
       return resolved;
+    });
+  };
+
+  const setNotifications = (newNotifs: AppNotification[] | ((prev: AppNotification[]) => AppNotification[])) => {
+    setNotificationsState(prev => {
+      const resolved = typeof newNotifs === 'function' ? newNotifs(prev) : newNotifs;
+      saveStorage('sivaksin_notifications', resolved);
+      return resolved;
+    });
+  };
+
+  const addNotification = (notif: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => {
+    const newEntry: AppNotification = {
+      ...notif,
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: new Date().toISOString(),
+      read: false
+    };
+    setNotifications(prev => [newEntry, ...prev]);
+  };
+
+  const markNotificationAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const requestDocumentRevision = async (bookingId: string, docType: 'ktp' | 'passport' | 'all', instructionMessage: string) => {
+    // 1. Update Booking status & notes
+    setBookings(prev => prev.map(b => {
+      if (b.id === bookingId) {
+        const updatedPatient = {
+          ...(b.patient || {}),
+          document_status: 'perlu_revisi',
+          document_revision_type: docType,
+          document_revision_note: instructionMessage,
+          document_revision_date: new Date().toISOString()
+        };
+        const updatedBooking = { ...b, patient: updatedPatient };
+        
+        // Sync to Supabase in background
+        if (isSupabaseConfigured) {
+          supabase.from('bookings').update({ patient: updatedPatient }).eq('id', bookingId).then(
+            () => {},
+            (err) => console.warn('Sync booking document revision to Supabase note:', err)
+          );
+        }
+        return updatedBooking;
+      }
+      return b;
+    }));
+
+    // Find the booking to get target user
+    const currentBooking = bookings.find(b => b.id === bookingId);
+    const targetUserId = currentBooking?.user_id || currentBooking?.patient?.nik || currentBooking?.patient?.email;
+
+    // 2. Add high-priority revision notification
+    const docLabel = docType === 'ktp' ? 'KTP' : docType === 'passport' ? 'Paspor' : 'KTP & Paspor';
+    addNotification({
+      userId: targetUserId,
+      bookingId: bookingId,
+      type: 'document_revision',
+      title: `Perintah Revisi Dokumen (${docLabel})`,
+      message: instructionMessage || `Mohon unggah ulang dokumen ${docLabel} Anda karena belum memenuhi standar verifikasi tim medis RSUD Al-Mulk.`,
+      documentType: docType,
+      adminName: 'Admin RSUD Al-Mulk',
+      actionUrl: '/notifications'
+    });
+  };
+
+  const verifyDocumentApproval = async (bookingId: string) => {
+    setBookings(prev => prev.map(b => {
+      if (b.id === bookingId) {
+        const updatedPatient = {
+          ...(b.patient || {}),
+          document_status: 'terverifikasi',
+          document_verified_date: new Date().toISOString()
+        };
+        const updatedBooking: Booking = { ...b, status: 'terverifikasi', patient: updatedPatient };
+
+        if (isSupabaseConfigured) {
+          supabase.from('bookings').update({ 
+            status: 'terverifikasi', 
+            patient: updatedPatient 
+          }).eq('id', bookingId).then(
+            () => {},
+            (err) => console.warn('Sync booking document approval to Supabase note:', err)
+          );
+        }
+        return updatedBooking;
+      }
+      return b;
+    }));
+
+    const currentBooking = bookings.find(b => b.id === bookingId);
+    const targetUserId = currentBooking?.user_id || currentBooking?.patient?.nik || currentBooking?.patient?.email;
+
+    addNotification({
+      userId: targetUserId,
+      bookingId: bookingId,
+      type: 'document_verified',
+      title: 'Dokumen Persyaratan Terverifikasi',
+      message: 'Dokumen KTP dan Paspor Anda telah diperiksa dan dinyatakan SESUAI oleh Tim Medis RSUD Al-Mulk. Silakan datang sesuai jadwal pendaftaran Anda.',
+      adminName: 'Admin RSUD Al-Mulk',
+      actionUrl: '/status'
+    });
+  };
+
+  const reuploadDocument = async (bookingId: string, docType: 'ktp' | 'passport', fileUrl: string, fileName?: string) => {
+    setBookings(prev => prev.map(b => {
+      if (b.id === bookingId) {
+        const updatedPatient = {
+          ...(b.patient || {}),
+          document_status: 'menunggu_verifikasi_ulang',
+          [`${docType}_url`]: fileUrl,
+          [`${docType}_file`]: fileName || `${docType}_revisi.jpg`,
+          [`${docType}_file_name`]: fileName || `${docType}_revisi.jpg`,
+          reupload_date: new Date().toISOString()
+        };
+        const updatedBooking = { ...b, patient: updatedPatient };
+
+        if (isSupabaseConfigured) {
+          supabase.from('bookings').update({ patient: updatedPatient }).eq('id', bookingId).then(
+            () => {},
+            (err) => console.warn('Sync reupload document to Supabase note:', err)
+          );
+        }
+        return updatedBooking;
+      }
+      return b;
+    }));
+
+    // Update user profile too
+    if (user) {
+      updateUser({
+        [`${docType}_url`]: fileUrl
+      });
+    }
+
+    addNotification({
+      userId: user?.id,
+      bookingId: bookingId,
+      type: 'general',
+      title: 'Dokumen Berhasil Dikirim Ulang',
+      message: `Dokumen ${docType.toUpperCase()} revisi Anda telah berhasil dikirim ke Admin RSUD Al-Mulk untuk verifikasi ulang.`,
+      actionUrl: '/status'
     });
   };
 
@@ -543,10 +740,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const newBooking = { ...booking, user_id: user?.id };
     
     // Simpan langsung ke Supabase Cloud
-    const { booking: savedCloudBooking, error } = await createBookingInSupabase(newBooking);
+    const { booking: savedCloudBooking } = await createBookingInSupabase(newBooking);
     const finalBooking = (savedCloudBooking as Booking) || newBooking;
 
     setBookings(prev => [finalBooking, ...prev.filter(b => b.id !== booking.id)]);
+
+    // Kurangi stok semua vaksin yang dipilih secara otomatis dan sinkronisasi ke Supabase
+    const targetVaccineIds: string[] = Array.isArray(booking.vaccineIds) && booking.vaccineIds.length > 0
+      ? booking.vaccineIds
+      : (booking.vaccineId ? [booking.vaccineId] : []);
+
+    if (targetVaccineIds.length > 0) {
+      setVaccines(prevVaccines => {
+        let updatedVaccines = [...prevVaccines];
+        targetVaccineIds.forEach(vId => {
+          const target = updatedVaccines.find(v => v.id === vId);
+          if (target) {
+            const updatedStock = Math.max(0, (target.stock || 0) - 1);
+            // Sync update stok ke Supabase Cloud di background
+            updateVaccineStockInSupabase(vId, updatedStock).catch(err => {
+              console.warn(`Gagal sync pengurangan stok vaksin (${vId}) ke Supabase:`, err);
+            });
+            updatedVaccines = updatedVaccines.map(v => v.id === vId ? { ...v, stock: updatedStock } : v);
+          }
+        });
+        return updatedVaccines;
+      });
+    }
   };
 
   const updateBookingStatus = async (id: string, status: Booking['status']) => {
@@ -554,9 +774,66 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await updateBookingStatusInSupabase(id, status);
   };
 
+  const addVaccine = async (newVaccineData: Vaccine): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setVaccines(prev => {
+        const filtered = prev.filter(v => v.id !== newVaccineData.id);
+        return [...filtered, newVaccineData];
+      });
+
+      const { success, error } = await createVaccineInSupabase({
+        id: newVaccineData.id,
+        name: newVaccineData.name,
+        price: newVaccineData.price,
+        stock: newVaccineData.stock,
+        description: newVaccineData.description || '',
+        benefits: newVaccineData.benefits || ['Sertifikat Internasional (ICV)']
+      });
+
+      if (!success && error) {
+        console.warn('Note: create vaccine supabase error:', error);
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Gagal menambahkan vaksin' };
+    }
+  };
+
+  const updateVaccine = async (id: string, updates: Partial<Vaccine>): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setVaccines(prev => prev.map(v => v.id === id ? { ...v, ...updates } : v));
+
+      const payload: any = {};
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.price !== undefined) payload.price = updates.price;
+      if (updates.stock !== undefined) payload.stock = updates.stock;
+      if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.benefits !== undefined) payload.benefits = updates.benefits;
+
+      const { success, error } = await updateVaccineInSupabase(id, payload);
+      if (!success && error) {
+        console.warn('Note: update vaccine supabase error:', error);
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Gagal mengubah data vaksin' };
+    }
+  };
+
+  const deleteVaccine = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setVaccines(prev => prev.filter(v => v.id !== id));
+      await deleteVaccineFromSupabase(id);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Gagal menghapus vaksin' };
+    }
+  };
+
   const updateVaccineStock = async (id: string, newStock: number) => {
-    setVaccines(prev => prev.map(v => v.id === id ? { ...v, stock: newStock } : v));
-    await updateVaccineStockInSupabase(id, newStock);
+    const validStock = Math.max(0, newStock);
+    setVaccines(prev => prev.map(v => v.id === id ? { ...v, stock: validStock } : v));
+    await updateVaccineStockInSupabase(id, validStock);
   };
 
   const deleteBooking = async (id: string) => {
@@ -572,7 +849,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         bookings,
         vaccines,
         users,
+        notifications,
         isSupabaseOnline,
+        isLoadingCloud,
         appLogo,
         setRole,
         setUser,
@@ -580,12 +859,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateUser,
         addBooking,
         updateBookingStatus,
+        addVaccine,
+        updateVaccine,
+        deleteVaccine,
         updateVaccineStock,
         deleteBooking,
         registerUser,
         loginUser,
         logout,
-        refreshAllCloudData
+        refreshAllCloudData,
+        addNotification,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        deleteNotification,
+        requestDocumentRevision,
+        verifyDocumentApproval,
+        reuploadDocument
       }}
     >
       {children}

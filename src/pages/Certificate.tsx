@@ -14,9 +14,18 @@ export default function Certificate() {
     return bookings.slice().reverse().find(b => b.status === "terverifikasi" || b.status === "selesai");
   }, [bookings]);
 
-  const certVaccine = useMemo(() => {
-    if (!certBooking) return null;
-    return vaccines.find(v => v.id === certBooking.vaccineId);
+  const certVaccines = useMemo(() => {
+    if (!certBooking) return [];
+    const ids = Array.isArray(certBooking.vaccineIds) && certBooking.vaccineIds.length > 0
+      ? certBooking.vaccineIds
+      : (Array.isArray(certBooking.patient?.selectedVaccines) && certBooking.patient.selectedVaccines.length > 0)
+        ? certBooking.patient.selectedVaccines
+        : (certBooking.vaccineId ? [certBooking.vaccineId] : []);
+    
+    const matched = vaccines.filter(v => ids.includes(v.id));
+    if (matched.length > 0) return matched;
+    const single = vaccines.find(v => v.id === certBooking.vaccineId);
+    return single ? [single] : [{ id: 'unknown', name: 'Vaksinasi Internasional', price: 0 }];
   }, [certBooking, vaccines]);
 
   const handlePrint = () => {
@@ -96,8 +105,19 @@ export default function Certificate() {
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 mb-6 relative">
-               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Detail Vaksinasi</p>
-               <h4 className="font-bold text-slate-800 mb-3">{certVaccine?.name || 'Vaksin Internasional'}</h4>
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Detail Vaksinasi ({certVaccines.length} Jenis)</p>
+               <div className="space-y-1.5 mb-3">
+                 {certVaccines.map(v => (
+                   <div key={v.id} className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                     <span className="font-bold text-slate-800 text-xs">{v.name}</span>
+                     {v.category && (
+                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                         {v.category}
+                       </span>
+                     )}
+                   </div>
+                 ))}
+               </div>
                
                <div className="grid grid-cols-2 gap-y-3 gap-x-2">
                   <div>

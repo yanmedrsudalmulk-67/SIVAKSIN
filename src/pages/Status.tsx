@@ -11,9 +11,18 @@ export default function Status() {
     return bookings.slice().reverse()[0];
   }, [bookings]);
 
-  const currentVaccine = useMemo(() => {
-    if (!currentBooking) return null;
-    return vaccines.find(v => v.id === currentBooking.vaccineId);
+  const bookingVaccines = useMemo(() => {
+    if (!currentBooking) return [];
+    const ids = Array.isArray(currentBooking.vaccineIds) && currentBooking.vaccineIds.length > 0
+      ? currentBooking.vaccineIds
+      : (Array.isArray(currentBooking.patient?.selectedVaccines) && currentBooking.patient.selectedVaccines.length > 0)
+        ? currentBooking.patient.selectedVaccines
+        : (currentBooking.vaccineId ? [currentBooking.vaccineId] : []);
+    
+    const matched = vaccines.filter(v => ids.includes(v.id));
+    if (matched.length > 0) return matched;
+    const single = vaccines.find(v => v.id === currentBooking.vaccineId);
+    return single ? [single] : [{ id: 'unknown', name: 'Vaksinasi Internasional', price: 0 }];
   }, [currentBooking, vaccines]);
 
   if (!currentBooking) {
@@ -88,8 +97,14 @@ export default function Status() {
                      <p className="text-[14px] font-bold text-slate-700">{patient?.name || user?.name || 'Pasien'}</p>
                   </div>
                   <div>
-                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Jenis Vaksin</p>
-                     <p className="text-[14px] font-bold text-slate-700">{currentVaccine?.name || 'Vaksin Internasional'}</p>
+                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Jenis Vaksin ({bookingVaccines.length} Jenis)</p>
+                     <div className="flex flex-wrap gap-1.5">
+                       {bookingVaccines.map(v => (
+                         <span key={v.id} className="text-xs font-bold bg-blue-50 text-blue-800 px-2.5 py-1 rounded-lg border border-blue-100">
+                           {v.name}
+                         </span>
+                       ))}
+                     </div>
                   </div>
                   <div className="flex gap-6 relative">
                      <div className="flex-1">

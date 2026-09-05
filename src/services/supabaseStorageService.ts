@@ -138,20 +138,36 @@ export const uploadFileToSupabase = async (
 
     for (const b of targetBuckets) {
       try {
-        const uploadPromise = supabase.storage.from(b).upload(filePath, uploadPayload, {
+        let uploadPromise = supabase.storage.from(b).upload(filePath, uploadPayload, {
           cacheControl: '3600',
           upsert: true,
           contentType: file instanceof File ? file.type : 'image/jpeg'
         });
 
-        const res = (await Promise.race([uploadPromise, timeoutPromise])) as any;
-        if (!res.error && res.data) {
+        let res = (await Promise.race([uploadPromise, timeoutPromise])) as any;
+        
+        // If bucket not found, attempt to create bucket and retry upload
+        if (res?.error && (res.error.message?.includes('Bucket not found') || res.error.statusCode === '404' || res.error.status === 404)) {
+          try {
+            await supabase.storage.createBucket(b, { public: true });
+            uploadPromise = supabase.storage.from(b).upload(filePath, uploadPayload, {
+              cacheControl: '3600',
+              upsert: true,
+              contentType: file instanceof File ? file.type : 'image/jpeg'
+            });
+            res = (await Promise.race([uploadPromise, timeoutPromise])) as any;
+          } catch (createErr) {
+            console.warn('Auto create bucket note:', createErr);
+          }
+        }
+
+        if (!res?.error && res?.data) {
           uploadSuccessData = res.data;
           successfulBucket = b;
           lastError = null;
           break;
         } else {
-          lastError = res.error;
+          lastError = res?.error;
         }
       } catch (err) {
         lastError = err;

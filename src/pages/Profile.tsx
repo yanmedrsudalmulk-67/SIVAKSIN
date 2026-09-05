@@ -4,7 +4,8 @@ import {
   User, Settings, Shield, LogOut, ChevronRight, HelpCircle, 
   FileText, ChevronLeft, Camera, Save, Phone, MapPin, Hash, 
   CheckCircle2, UploadCloud, Database, Cloud, Loader2, ExternalLink,
-  Image as ImageIcon, Sparkles, RefreshCw, Check, AlertCircle, Trash2
+  Image as ImageIcon, Sparkles, RefreshCw, Check, AlertCircle, Trash2,
+  Syringe, Plus, Edit3, Search, SlidersHorizontal, X, ArrowUpRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -13,12 +14,54 @@ import { saveAppSettingsToSupabase, fetchAppSettingsFromSupabase } from '../serv
 import SupabaseConfigModal from '../components/SupabaseConfigModal';
 
 export default function Profile() {
-  const { user, role, logout, updateUser, isSupabaseOnline, refreshAllCloudData, appLogo, setAppLogo } = useAppStore();
+  const { 
+    user, 
+    role, 
+    logout, 
+    updateUser, 
+    isSupabaseOnline, 
+    refreshAllCloudData, 
+    appLogo, 
+    setAppLogo,
+    vaccines,
+    addVaccine,
+    updateVaccine,
+    deleteVaccine,
+    updateVaccineStock
+  } = useAppStore();
   const navigate = useNavigate();
-  const [currentView, setCurrentView] = useState<'main' | 'edit_profile' | 'support_data' | 'app_settings' | 'logo_settings'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'edit_profile' | 'support_data' | 'app_settings' | 'logo_settings' | 'vaccine_settings'>('main');
+
+  // Vaccine management states
+  const [vaccineSearch, setVaccineSearch] = useState('');
+  const [isVaccineModalOpen, setIsVaccineModalOpen] = useState(false);
+  const [isEditingVaccine, setIsEditingVaccine] = useState(false);
+  const [editingVaccineId, setEditingVaccineId] = useState<string | null>(null);
+  const [vaccineForm, setVaccineForm] = useState({
+    name: '',
+    price: 350000,
+    stock: 50,
+    category: 'Wajib' as 'Wajib' | 'Dianjurkan' | 'Rutin',
+    description: '',
+    benefits: 'Sertifikat Internasional (ICV), Perlindungan Medis Terstandarisasi'
+  });
+  const [isSavingVaccine, setIsSavingVaccine] = useState(false);
+  const [vaccineFeedbackMsg, setVaccineFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [editName, setEditName] = useState(user?.name || user?.full_name || '');
-  const [editAvatar, setEditAvatar] = useState<string>(user?.avatar_url || user?.avatar || '');
+  const [editAvatar, setEditAvatar] = useState<string>(user?.avatar_url || user?.avatar || localStorage.getItem('sivaksin_user_avatar') || '');
+
+  useEffect(() => {
+    if (user) {
+      if (user.name || user.full_name) {
+        setEditName(user.name || user.full_name);
+      }
+      const currentAv = user.avatar_url || user.avatar || localStorage.getItem('sivaksin_user_avatar');
+      if (currentAv) {
+        setEditAvatar(currentAv);
+      }
+    }
+  }, [user]);
   
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(appLogo || localStorage.getItem('app_logo'));
@@ -65,6 +108,7 @@ export default function Profile() {
       const file = e.target.files[0];
       if (file.size > 8 * 1024 * 1024) {
         alert('Ukuran foto profil maksimal 8MB.');
+        e.target.value = '';
         return;
       }
 
@@ -103,6 +147,9 @@ export default function Profile() {
         alert('Gagal mengunggah foto profil: ' + (err.message || 'Terjadi kesalahan'));
       } finally {
         setIsUploadingAvatar(false);
+        if (e.target) {
+          e.target.value = '';
+        }
       }
     }
   };
@@ -769,10 +816,544 @@ export default function Profile() {
     </div>
   );
 
+  const renderVaccineSettings = () => {
+    const totalStock = vaccines.reduce((acc, v) => acc + (v.stock || 0), 0);
+    const lowStockCount = vaccines.filter(v => (v.stock || 0) < 10 && (v.stock || 0) > 0).length;
+    const outOfStockCount = vaccines.filter(v => (v.stock || 0) <= 0).length;
+
+    const filteredVaccines = vaccines.filter(v => 
+      v.name.toLowerCase().includes(vaccineSearch.toLowerCase()) ||
+      (v.description && v.description.toLowerCase().includes(vaccineSearch.toLowerCase())) ||
+      (v.category && v.category.toLowerCase().includes(vaccineSearch.toLowerCase()))
+    );
+
+    const openAddVaccineModal = () => {
+      setIsEditingVaccine(false);
+      setEditingVaccineId(null);
+      setVaccineForm({
+        name: '',
+        price: 350000,
+        stock: 50,
+        category: 'Wajib',
+        description: '',
+        benefits: 'Sertifikat Internasional (ICV), Perlindungan Medis Terstandarisasi'
+      });
+      setIsVaccineModalOpen(true);
+    };
+
+    const openEditVaccineModal = (v: any) => {
+      setIsEditingVaccine(true);
+      setEditingVaccineId(v.id);
+      setVaccineForm({
+        name: v.name,
+        price: v.price,
+        stock: v.stock,
+        category: v.category || 'Wajib',
+        description: v.description || '',
+        benefits: Array.isArray(v.benefits) ? v.benefits.join(', ') : (v.benefits || 'Sertifikat Internasional (ICV)')
+      });
+      setIsVaccineModalOpen(true);
+    };
+
+    const handleSaveVaccine = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!vaccineForm.name.trim()) {
+        alert('Nama vaksin wajib diisi!');
+        return;
+      }
+      if (vaccineForm.price < 0) {
+        alert('Harga vaksin tidak boleh bernilai negatif!');
+        return;
+      }
+
+      setIsSavingVaccine(true);
+      const benefitsArray = vaccineForm.benefits
+        .split(',')
+        .map(b => b.trim())
+        .filter(Boolean);
+
+      try {
+        if (isEditingVaccine && editingVaccineId) {
+          await updateVaccine(editingVaccineId, {
+            name: vaccineForm.name.trim(),
+            price: Number(vaccineForm.price),
+            stock: Math.max(0, Number(vaccineForm.stock)),
+            category: vaccineForm.category,
+            description: vaccineForm.description.trim() || `Vaksinasi resmi ${vaccineForm.name.trim()} RSUD Al-Mulk`,
+            benefits: benefitsArray.length > 0 ? benefitsArray : ['Sertifikat Internasional (ICV)']
+          });
+          setVaccineFeedbackMsg({ type: 'success', text: `Data vaksin "${vaccineForm.name}" dan stok berhasil diperbarui!` });
+        } else {
+          const newId = `vax_${Date.now()}`;
+          await addVaccine({
+            id: newId,
+            name: vaccineForm.name.trim(),
+            price: Number(vaccineForm.price),
+            stock: Math.max(0, Number(vaccineForm.stock)),
+            category: vaccineForm.category,
+            description: vaccineForm.description.trim() || `Vaksinasi resmi ${vaccineForm.name.trim()} RSUD Al-Mulk`,
+            benefits: benefitsArray.length > 0 ? benefitsArray : ['Sertifikat Internasional (ICV)']
+          });
+          setVaccineFeedbackMsg({ type: 'success', text: `Vaksin baru "${vaccineForm.name}" berhasil ditambahkan & terhubung!` });
+        }
+        setIsVaccineModalOpen(false);
+        setTimeout(() => setVaccineFeedbackMsg(null), 4500);
+      } catch (err: any) {
+        setVaccineFeedbackMsg({ type: 'error', text: err.message || 'Gagal menyimpan data vaksin ke Supabase' });
+      } finally {
+        setIsSavingVaccine(false);
+      }
+    };
+
+    const handleDeleteVaccine = async (id: string, name: string) => {
+      if (confirm(`Hapus vaksin "${name}" dari sistem? Tindakan ini akan menghapus pilihan vaksin dari menu Booking dan memperbarui database Supabase.`)) {
+        try {
+          await deleteVaccine(id);
+          setVaccineFeedbackMsg({ type: 'success', text: `Vaksin "${name}" telah berhasil dihapus dari sistem.` });
+          setTimeout(() => setVaccineFeedbackMsg(null), 4000);
+        } catch (err: any) {
+          alert('Gagal menghapus vaksin: ' + err.message);
+        }
+      }
+    };
+
+    return (
+      <div className="bg-slate-50 min-h-screen relative w-full h-full font-sans pb-16">
+        {/* Sticky Header */}
+        <div className="bg-white px-4 py-4 sticky top-0 z-40 shadow-xs border-b border-slate-200">
+          <div className="max-w-3xl mx-auto flex items-center justify-between w-full">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setCurrentView('main')} 
+                className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Kembali ke Menu Profil"
+              >
+                <ChevronLeft className="text-slate-700" />
+              </button>
+              <div>
+                <h1 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                  <Syringe size={20} className="text-blue-600" />
+                  Pengaturan Data & Stok Vaksin
+                </h1>
+                <p className="text-xs text-slate-500">Terintegrasi otomatis dengan Menu Booking & Database</p>
+              </div>
+            </div>
+
+            <button 
+              type="button"
+              onClick={openAddVaccineModal}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+            >
+              <Plus size={15} />
+              <span className="hidden sm:inline">Tambah Vaksin</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-6 max-w-3xl mx-auto w-full space-y-6">
+          {/* Feedback message banner */}
+          {vaccineFeedbackMsg && (
+            <div className={`p-4 rounded-2xl border text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300 ${
+              vaccineFeedbackMsg.type === 'success' 
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                {vaccineFeedbackMsg.type === 'success' ? (
+                  <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle size={18} className="text-rose-600 shrink-0" />
+                )}
+                <span>{vaccineFeedbackMsg.text}</span>
+              </div>
+              <button onClick={() => setVaccineFeedbackMsg(null)} className="opacity-70 hover:opacity-100 cursor-pointer ml-2">
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Quick Metrics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Jenis</span>
+              <p className="text-2xl font-black text-slate-800">{vaccines.length}</p>
+              <span className="text-[10px] text-slate-500 font-medium">Vaksin Terdaftar</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Stok</span>
+              <p className="text-2xl font-black text-blue-600">{totalStock}</p>
+              <span className="text-[10px] text-slate-500 font-medium">Dosis Tersedia</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Stok Kritis</span>
+              <p className={`text-2xl font-black ${lowStockCount > 0 ? 'text-amber-500' : 'text-slate-700'}`}>{lowStockCount}</p>
+              <span className="text-[10px] text-slate-500 font-medium">&lt; 10 Dosis</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Stok Habis</span>
+              <p className={`text-2xl font-black ${outOfStockCount > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>{outOfStockCount}</p>
+              <span className="text-[10px] text-slate-500 font-medium">{outOfStockCount > 0 ? 'Perlu Restok' : 'Semua Siap'}</span>
+            </div>
+          </div>
+
+          {/* Search and Filter */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+              <input 
+                type="text" 
+                value={vaccineSearch}
+                onChange={(e) => setVaccineSearch(e.target.value)}
+                placeholder="Cari nama vaksin, kategori, atau indikasi..." 
+                className="w-full bg-white border border-slate-200 rounded-2xl py-2.5 pl-10 pr-4 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-xs"
+              />
+            </div>
+            
+            <button 
+              type="button" 
+              onClick={() => refreshAllCloudData()}
+              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-2xl flex items-center justify-center gap-2 shrink-0 shadow-xs cursor-pointer active:scale-95 transition-all"
+              title="Sinkronkan dengan Database Cloud Supabase"
+            >
+              <RefreshCw size={14} className={isSupabaseOnline ? 'text-emerald-600' : 'text-slate-400'} />
+              <span>Sinkron Data</span>
+            </button>
+          </div>
+
+          {/* Realtime Integration Info Card */}
+          <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-blue-100 text-blue-700 shrink-0">
+              <Sparkles size={18} />
+            </div>
+            <div className="text-xs">
+              <p className="font-bold text-blue-900 mb-0.5">Integrasi Otomatis Booking & Stok</p>
+              <p className="text-blue-700 leading-relaxed">
+                Setiap kali pasien mendaftar dan memilih vaksin di menu <strong>Booking</strong>, jumlah stok vaksin di bawah ini akan <strong>otomatis berkurang 1</strong> dan langsung diperbarui di database cloud Supabase secara realtime.
+              </p>
+            </div>
+          </div>
+
+          {/* List of Vaccines */}
+          <div className="space-y-4">
+            {filteredVaccines.length === 0 ? (
+              <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 shadow-sm space-y-3">
+                <Syringe size={36} className="text-slate-300 mx-auto" />
+                <h4 className="font-bold text-slate-700 text-sm">Tidak ada vaksin yang cocok</h4>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Silakan ubah kata kunci pencarian atau klik tombol "Tambah Vaksin" untuk mendaftarkan jenis vaksin baru.
+                </p>
+                <button 
+                  type="button" 
+                  onClick={openAddVaccineModal}
+                  className="inline-flex items-center gap-1.5 bg-blue-600 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-sm cursor-pointer"
+                >
+                  <Plus size={14} /> Tambah Vaksin Baru
+                </button>
+              </div>
+            ) : (
+              filteredVaccines.map((v) => {
+                const isCritical = (v.stock || 0) < 10 && (v.stock || 0) > 0;
+                const isOut = (v.stock || 0) <= 0;
+
+                return (
+                  <div 
+                    key={v.id} 
+                    className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between gap-4 transition-all hover:border-blue-200"
+                  >
+                    {/* Top Row: Info and Actions */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-slate-800 text-base">{v.name}</h3>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                            v.category === 'Wajib' 
+                              ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                              : v.category === 'Dianjurkan'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-blue-50 text-blue-700 border-blue-200'
+                          }`}>
+                            {v.category || 'Wajib'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-relaxed">{v.description}</p>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openEditVaccineModal(v)}
+                          className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+                          title="Edit Data & Harga Vaksin"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteVaccine(v.id, v.name)}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                          title="Hapus Vaksin"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Middle Row: Price & Stock Badge */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                          Harga Layanan Vaksin
+                        </span>
+                        <span className="text-lg font-black text-blue-700">
+                          Rp{v.price.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                          Status Ketersediaan
+                        </span>
+                        {isOut ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 uppercase">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                            Stok Habis
+                          </span>
+                        ) : isCritical ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 uppercase">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                            Kritis ({v.stock} Dosis)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Tersedia ({v.stock} Dosis)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Direct Stock Adjusters */}
+                    <div className="bg-slate-50/80 rounded-2xl p-3 flex items-center justify-between gap-2 border border-slate-100">
+                      <span className="text-xs font-bold text-slate-600">Sesuaikan Jumlah Stok:</span>
+                      
+                      <div className="flex items-center gap-1.5">
+                        <button 
+                          type="button"
+                          onClick={() => updateVaccineStock(v.id, Math.max(0, (v.stock || 0) - 10))}
+                          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-xs cursor-pointer active:scale-95"
+                          title="Kurangi 10 Dosis"
+                        >
+                          -10
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => updateVaccineStock(v.id, Math.max(0, (v.stock || 0) - 1))}
+                          className="w-8 h-8 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center justify-center cursor-pointer active:scale-95"
+                          title="Kurangi 1 Dosis"
+                        >
+                          -1
+                        </button>
+
+                        <input 
+                          type="number" 
+                          min={0}
+                          value={v.stock} 
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            updateVaccineStock(v.id, Math.max(0, val));
+                          }}
+                          className="w-16 h-8 bg-white border border-slate-300 rounded-xl text-center font-black text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-xs"
+                          title="Ketik langsung jumlah stok"
+                        />
+
+                        <button 
+                          type="button"
+                          onClick={() => updateVaccineStock(v.id, (v.stock || 0) + 1)}
+                          className="w-8 h-8 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-bold text-xs rounded-xl shadow-xs flex items-center justify-center cursor-pointer active:scale-95"
+                          title="Tambah 1 Dosis"
+                        >
+                          +1
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => updateVaccineStock(v.id, (v.stock || 0) + 10)}
+                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer active:scale-95"
+                          title="Tambah 10 Dosis"
+                        >
+                          +10
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Modal Tambah / Edit Vaksin */}
+        {isVaccineModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-100 my-8">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <Syringe size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-base">
+                      {isEditingVaccine ? 'Edit Data & Harga Vaksin' : 'Tambah Jenis Vaksin Baru'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">Sinkronisasi otomatis ke Supabase Cloud</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsVaccineModalOpen(false)}
+                  className="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center cursor-pointer transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveVaccine} className="space-y-4">
+                {/* Nama Vaksin */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Nama Vaksin <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    required
+                    value={vaccineForm.name}
+                    onChange={(e) => setVaccineForm({ ...vaccineForm, name: e.target.value })}
+                    placeholder="Contoh: Meningitis Menveo ACW135Y" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
+                  />
+                </div>
+
+                {/* Harga & Stok Row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Harga Vaksin (Rp) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
+                      <input 
+                        type="number" 
+                        required
+                        min={0}
+                        step={5000}
+                        value={vaccineForm.price}
+                        onChange={(e) => setVaccineForm({ ...vaccineForm, price: Number(e.target.value) })}
+                        placeholder="350000" 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Jumlah Stok Tersedia <span className="text-rose-500">*</span>
+                    </label>
+                    <input 
+                      type="number" 
+                      required
+                      min={0}
+                      value={vaccineForm.stock}
+                      onChange={(e) => setVaccineForm({ ...vaccineForm, stock: Number(e.target.value) })}
+                      placeholder="50" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Kategori Vaksin */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Kategori / Regulasi
+                  </label>
+                  <select 
+                    value={vaccineForm.category}
+                    onChange={(e) => setVaccineForm({ ...vaccineForm, category: e.target.value as any })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
+                  >
+                    <option value="Wajib">Wajib (Umroh / Haji / International Traveler)</option>
+                    <option value="Dianjurkan">Dianjurkan (Pencegahan & Mobilitas)</option>
+                    <option value="Rutin">Rutin / Perlindungan Lanjutan</option>
+                  </select>
+                </div>
+
+                {/* Deskripsi */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Deskripsi / Indikasi Vaksin
+                  </label>
+                  <textarea 
+                    rows={3}
+                    value={vaccineForm.description}
+                    onChange={(e) => setVaccineForm({ ...vaccineForm, description: e.target.value })}
+                    placeholder="Contoh: Perlindungan terhadap infeksi bakteri meningokokus tipe A, C, W-135, dan Y. Wajib untuk jamaah Umroh." 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white leading-relaxed"
+                  />
+                </div>
+
+                {/* Manfaat */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Manfaat / Sertifikat (Pisahkan dengan koma)
+                  </label>
+                  <input 
+                    type="text" 
+                    value={vaccineForm.benefits}
+                    onChange={(e) => setVaccineForm({ ...vaccineForm, benefits: e.target.value })}
+                    placeholder="Sertifikat ICV Kuning, Perlindungan 2 Tahun, QR Verifikasi" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
+                  />
+                </div>
+
+                <div className="pt-3 flex gap-2.5 justify-end">
+                  <button 
+                    type="button"
+                    onClick={() => setIsVaccineModalOpen(false)}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSavingVaccine}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingVaccine ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Menyimpan ke Cloud...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save size={14} />
+                        <span>{isEditingVaccine ? 'Simpan Perubahan' : 'Tambahkan Vaksin'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (currentView === 'edit_profile') return renderEditProfile();
   if (currentView === 'logo_settings') return renderLogoSettings();
   if (currentView === 'support_data') return renderSupportData();
   if (currentView === 'app_settings') return renderAppSettings();
+  if (currentView === 'vaccine_settings') return renderVaccineSettings();
 
   return (
     <div className="bg-slate-50 min-h-screen relative w-full h-full font-sans pb-12">
@@ -797,19 +1378,43 @@ export default function Profile() {
         {/* User Card with Quick Avatar Upload */}
         <div className="rounded-3xl p-6 shadow-sm border border-slate-200 bg-white flex flex-col sm:flex-row items-center sm:items-start gap-5 relative overflow-hidden">
           
-          {/* Avatar Container */}
-          <div className="relative shrink-0">
+          {/* Avatar Container with Camera Badge & Hover Effect */}
+          <div className="relative shrink-0 group">
             <div 
-              onClick={() => quickAvatarInputRef.current?.click()}
-              className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-tr from-blue-600 to-cyan-500 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-md overflow-hidden border-2 border-white cursor-pointer"
-              title="Foto Profil Pengguna"
+              onClick={() => !isUploadingAvatar && quickAvatarInputRef.current?.click()}
+              className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-tr from-blue-600 to-cyan-500 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-md overflow-hidden border-2 border-white cursor-pointer relative"
+              title="Klik untuk Upload / Ganti Foto Profil"
             >
               {currentAvatar ? (
                 <img src={currentAvatar} alt="Foto Profil" className="w-full h-full object-cover" />
               ) : (
                 (user?.name || user?.full_name || 'U').charAt(0).toUpperCase()
               )}
+
+              {/* Uploading overlay or hover indicator */}
+              {isUploadingAvatar ? (
+                <div className="absolute inset-0 bg-blue-900/70 flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1">
+                  <Loader2 size={22} className="animate-spin text-white" />
+                  <span>Cloud...</span>
+                </div>
+              ) : (
+                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold">
+                  <Camera size={18} />
+                  <span>Ubah</span>
+                </div>
+              )}
             </div>
+
+            {/* Camera Badge Icon on bottom corner */}
+            <button
+              type="button"
+              onClick={() => !isUploadingAvatar && quickAvatarInputRef.current?.click()}
+              disabled={isUploadingAvatar}
+              className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white cursor-pointer active:scale-95 transition-all"
+              title="Pilih dan Unggah Foto Profil"
+            >
+              {isUploadingAvatar ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
+            </button>
           </div>
 
           {/* User Details */}
@@ -832,25 +1437,65 @@ export default function Profile() {
               </span>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-3">
               <button
                 type="button"
-                onClick={() => quickAvatarInputRef.current?.click()}
-                className="text-xs text-blue-600 hover:text-blue-800 font-bold underline underline-offset-2"
+                onClick={() => !isUploadingAvatar && quickAvatarInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+                className="text-xs text-blue-600 hover:text-blue-800 font-bold underline underline-offset-2 flex items-center gap-1 cursor-pointer"
               >
-                + Tambah / Upload Foto Profil Baru
+                {isUploadingAvatar ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span>Sedang Menyimpan ke Supabase...</span>
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud size={13} />
+                    <span>+ Tambah / Upload Foto Profil Baru</span>
+                  </>
+                )}
               </button>
+
+              {currentAvatar && !isUploadingAvatar && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  className="text-xs text-rose-500 hover:text-rose-700 font-medium hover:underline cursor-pointer"
+                >
+                  Hapus Foto
+                </button>
+              )}
             </div>
           </div>
         </div>
 
+        {/* Success Alert on Main Profile */}
+        {avatarSuccessMsg && (
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{avatarSuccessMsg}</span>
+            </div>
+            <button onClick={() => setAvatarSuccessMsg(null)} className="text-emerald-700 hover:text-emerald-900 cursor-pointer">
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Menu Section */}
         <div className="space-y-3">
           <h3 className="font-black text-slate-800 text-xs uppercase tracking-wider pl-2">
-            Pengaturan & Logo
+            Pengaturan & Layanan Vaksin
           </h3>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
+            <MenuItem 
+              icon={<Syringe className="text-emerald-600" />} 
+              label="Pengaturan Data & Stok Vaksin" 
+              sublabel="Atur nama vaksin, harga (Rp), stok tersedia, dan tambah jenis baru"
+              onClick={() => setCurrentView('vaccine_settings')} 
+            />
             <MenuItem 
               icon={<User className="text-blue-600" />} 
               label="Ubah Profil & Foto Pengguna" 

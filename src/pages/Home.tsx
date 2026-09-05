@@ -10,10 +10,19 @@ import {
 import { useAppStore } from '../store/AppContext';
 
 export default function Home() {
-  const { user, vaccines, bookings, appLogo } = useAppStore();
+  const { user, vaccines, bookings, appLogo, notifications } = useAppStore();
   const navigate = useNavigate();
   const [logoUrl, setLogoUrl] = useState<string | null>(appLogo || localStorage.getItem('app_logo'));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatar_url || user?.avatar || localStorage.getItem('sivaksin_user_avatar'));
+
+  const userAvatar = avatarUrl || user?.avatar_url || user?.avatar || localStorage.getItem('sivaksin_user_avatar');
+
+  const unreadNotifCount = notifications.filter(n => {
+    if (n.read) return false;
+    if (!n.userId) return true;
+    if (!user) return true;
+    return n.userId === user.id || n.userId === user.nik || n.userId === user.email || n.userId === 'user';
+  }).length;
 
   useEffect(() => {
     setLogoUrl(appLogo || localStorage.getItem('app_logo'));
@@ -39,7 +48,17 @@ export default function Home() {
   
   // Check upcoming booking
   const upcomingBooking = bookings.slice().reverse().find(b => b.status === 'menunggu' || b.status === 'terverifikasi');
-  const upcomingVaccine = upcomingBooking ? vaccines.find(v => v.id === upcomingBooking.vaccineId) : null;
+  const upcomingVaccines = upcomingBooking ? (() => {
+    const ids = Array.isArray(upcomingBooking.vaccineIds) && upcomingBooking.vaccineIds.length > 0
+      ? upcomingBooking.vaccineIds
+      : (Array.isArray(upcomingBooking.patient?.selectedVaccines) && upcomingBooking.patient.selectedVaccines.length > 0)
+        ? upcomingBooking.patient.selectedVaccines
+        : (upcomingBooking.vaccineId ? [upcomingBooking.vaccineId] : []);
+    const matched = vaccines.filter(v => ids.includes(v.id));
+    if (matched.length > 0) return matched;
+    const single = vaccines.find(v => v.id === upcomingBooking.vaccineId);
+    return single ? [single] : [{ id: 'unknown', name: 'Vaksinasi Internasional', price: 0 }];
+  })() : [];
 
   // Carousel
   const banners = [
@@ -55,10 +74,6 @@ export default function Home() {
     }, 5000);
     return () => clearInterval(timer);
   }, [banners.length]);
-
-  const userAvatar = avatarUrl || user?.avatar_url || user?.avatar || localStorage.getItem('sivaksin_user_avatar');
-
-
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 font-sans">
@@ -114,17 +129,17 @@ export default function Home() {
             </h2>
           </div>
 
-          {/* Kanan: App Logo */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            {/* Logo Display */}
-            {logoUrl && (
-              <div 
-                onClick={() => navigate('/profile')}
-                className="w-12 h-12 sm:w-13 sm:h-13 rounded-[18px] bg-white p-0.5 shadow-md border border-white/40 overflow-hidden cursor-pointer hover:scale-105 transition-transform shrink-0 flex items-center justify-center"
-                title="Logo Aplikasi SIVAKSIN"
-              >
-                <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5 transform scale-105" />
-              </div>
+          {/* Kanan: Tombol Notifikasi */}
+          <div 
+            onClick={() => navigate('/notifications')}
+            className="relative w-[48px] h-[48px] bg-white/20 backdrop-blur-md border border-white/30 rounded-[18px] flex items-center justify-center text-white cursor-pointer active:scale-95 transition-all shadow-md shrink-0 hover:bg-white/30"
+            title="Menu Notifikasi"
+          >
+            <Bell size={22} />
+            {unreadNotifCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white font-black text-[10px] rounded-full flex items-center justify-center border-2 border-[#0F3DDE] shadow-sm animate-pulse">
+                {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+              </span>
             )}
           </div>
         </div>
@@ -381,7 +396,9 @@ export default function Home() {
                      </div>
                      <div className="flex-1 min-w-0 pr-1">
                         <div className="flex items-start justify-between mb-1.5 gap-2">
-                           <h4 className="font-bold text-slate-800 text-[14px] truncate leading-tight mt-0.5 tracking-tight">{upcomingVaccine?.name.split(' (')[0]}</h4>
+                           <h4 className="font-bold text-slate-800 text-[14px] truncate leading-tight mt-0.5 tracking-tight">
+                             {upcomingVaccines.map(v => v.name.split(' (')[0]).join(', ') || 'Vaksinasi'}
+                           </h4>
                            <div className="px-2 py-1 rounded-[8px] text-[9px] font-extrabold uppercase tracking-widest bg-[#f0fdf4] text-[#16a34a] border border-[#bbf7d0]/80 flex items-center gap-1 shrink-0">
                               <CheckCircle size={10} className="fill-[#16a34a] text-white" /> Terverif
                            </div>

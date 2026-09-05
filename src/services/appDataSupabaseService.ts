@@ -125,6 +125,55 @@ export const updateVaccineStockInSupabase = async (
   }
 };
 
+export const createVaccineInSupabase = async (
+  vaccine: VaccineData
+): Promise<{ success: boolean; error: string | null }> => {
+  if (!isSupabaseConfigured) return { success: true, error: null };
+
+  try {
+    const { error } = await supabase.from('vaccines').insert([vaccine]);
+    if (error) {
+      return { success: false, error: formatSupabaseErrorMessage(error) };
+    }
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: formatSupabaseErrorMessage(err) };
+  }
+};
+
+export const updateVaccineInSupabase = async (
+  id: string,
+  updates: Partial<VaccineData>
+): Promise<{ success: boolean; error: string | null }> => {
+  if (!isSupabaseConfigured) return { success: true, error: null };
+
+  try {
+    const { error } = await supabase.from('vaccines').update(updates).eq('id', id);
+    if (error) {
+      return { success: false, error: formatSupabaseErrorMessage(error) };
+    }
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: formatSupabaseErrorMessage(err) };
+  }
+};
+
+export const deleteVaccineFromSupabase = async (
+  id: string
+): Promise<{ success: boolean; error: string | null }> => {
+  if (!isSupabaseConfigured) return { success: true, error: null };
+
+  try {
+    const { error } = await supabase.from('vaccines').delete().eq('id', id);
+    if (error) {
+      return { success: false, error: formatSupabaseErrorMessage(error) };
+    }
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: formatSupabaseErrorMessage(err) };
+  }
+};
+
 // ==========================================
 // 2. BOOKINGS / RESERVASI SERVICES
 // ==========================================
@@ -271,17 +320,55 @@ export const upsertUserProfileToSupabase = async (
   if (!isSupabaseConfigured) return { success: true, error: null };
 
   try {
-    const payload = {
-      ...userData,
-      updated_at: new Date().toISOString()
+    const rawUsername = userData.username || userData.name || (userData.email ? userData.email.split('@')[0] : '') || userData.id;
+
+    const basePayload: any = {
+      id: userData.id,
+      username: rawUsername,
+      name: userData.name || userData.username || 'Pengguna',
+      email: userData.email || '',
+      role: userData.role || 'user',
+      nik: userData.nik ?? null,
+      no_hp: userData.no_hp ?? null,
+      alamat: userData.alamat ?? null,
+      no_passport: userData.no_passport ?? null,
+      avatar_url: userData.avatar_url ?? null,
+      ktp_url: userData.ktp_url ?? null,
+      passport_url: userData.passport_url ?? null,
     };
 
     const timeoutPromise = new Promise<{ error: any }>((_, reject) =>
       setTimeout(() => reject(new Error('Timeout menyimpan profil ke Supabase')), 8000)
     );
 
-    const upsertPromise = supabase.from('users').upsert(payload, { onConflict: 'id' });
-    const { error } = (await Promise.race([upsertPromise, timeoutPromise])) as any;
+    // 1. Attempt standard upsert
+    let { error } = (await Promise.race([
+      supabase.from('users').upsert(basePayload, { onConflict: 'id' }),
+      timeoutPromise
+    ])) as any;
+
+    // 2. Fallback to direct update or insert if upsert fails
+    if (error) {
+      console.warn('Upsert profil attempt 1 warning, attempting direct update/insert:', error.message);
+      const updateRes = (await Promise.race([
+        supabase.from('users').update(basePayload).eq('id', userData.id),
+        timeoutPromise
+      ])) as any;
+
+      if (!updateRes?.error) {
+        error = null;
+      } else {
+        const insertRes = (await Promise.race([
+          supabase.from('users').insert([basePayload]),
+          timeoutPromise
+        ])) as any;
+        if (!insertRes?.error) {
+          error = null;
+        } else {
+          error = insertRes.error;
+        }
+      }
+    }
 
     if (error) {
       return { success: false, error: formatSupabaseErrorMessage(error) };
