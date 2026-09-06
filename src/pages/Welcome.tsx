@@ -106,35 +106,38 @@ export default function Welcome() {
             transition={{ delay: 0.7, duration: 0.8 }}
             className="w-full relative"
           >
-            {/* Colorful blob behind button to emphasize glass effect */}
-            <div className="absolute inset-0 bg-brand-500 rounded-full blur-2xl opacity-15"></div>
+            {/* Colorful soft glow behind button */}
+            <div className="absolute inset-0 bg-blue-600 rounded-full blur-2xl opacity-25"></div>
             
-            <button 
+            <motion.button 
               onClick={() => navigate('/login')}
-              className="relative w-full h-16 rounded-[2rem] flex items-center justify-center bg-white/70 border border-white/80 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] group overflow-hidden transition-transform active:scale-95"
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+              whileTap={{ scale: 0.96 }}
+              className="relative w-full h-16 rounded-[2rem] flex items-center justify-center bg-gradient-to-r from-[#0F3DDE] via-[#2563EB] to-[#1D4ED8] border border-blue-300/30 shadow-[0_12px_32px_-6px_rgba(29,78,216,0.5)] group overflow-hidden cursor-pointer"
             >
-              {/* Inner subtle glow highlight */}
-              <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white to-transparent opacity-70 pointer-events-none z-0"></div>
+              {/* Inner subtle top highlight */}
+              <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent opacity-80 pointer-events-none z-0"></div>
               
-              {/* Shimmer/Glass effect animation */}
+              {/* Shimmer effect animation */}
               <motion.div
-                className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/80 to-transparent skew-x-[-25deg] pointer-events-none z-0"
+                className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-[-25deg] pointer-events-none z-0"
                 animate={{ x: ['-200%', '400%'] }}
                 transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut", repeatDelay: 0.5 }}
               />
 
               <div className="relative z-10 w-full h-full flex items-center justify-center">
-                <span className="text-xl font-black text-brand-600 tracking-wide pr-2">Ayo Mulai</span>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-brand-600 flex items-center justify-center shadow-md">
+                <span className="text-xl font-black text-white tracking-wide pr-2 drop-shadow-sm">Ayo Mulai</span>
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-md">
                   <motion.div
-                    animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}
+                    animate={{ scale: [1, 1.15, 1] }}
                     transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
                   >
-                    <ArrowRight size={22} className="text-white" strokeWidth={2.5} />
+                    <ArrowRight size={22} className="text-blue-600" strokeWidth={2.8} />
                   </motion.div>
                 </div>
               </div>
-            </button>
+            </motion.button>
 
           </motion.div>
         </div>
