@@ -101,7 +101,7 @@ export default function Login() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="bg-white/95 rounded-[32px] p-6 sm:p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.12)] border border-white/80 flex-1 relative mb-6 backdrop-blur-md flex flex-col justify-center"
+          className="bg-white/60 backdrop-blur-2xl rounded-[32px] p-6 sm:p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white/50 flex-1 relative mb-6 flex flex-col justify-center"
         >
           <div className="mb-6">
             <h2 className="text-[20px] font-extrabold text-slate-800 mb-2 leading-tight tracking-tight">Selamat Datang Kembali</h2>
