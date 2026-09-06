@@ -118,7 +118,7 @@ export default function SkriningVaksinDoc({
 
   return (
     <div
-      className={`bg-white text-black font-sans mx-auto p-4 sm:p-8 md:p-10 w-full max-w-[840px] shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-6 print:m-0 print:max-w-none ${
+      className={`bg-white text-black font-sans mx-auto p-3.5 sm:p-8 md:p-10 w-full max-w-[840px] shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-6 print:m-0 print:max-w-none ${
         isPrintMode ? 'print-container' : ''
       }`}
       style={{ minHeight: '330mm', color: '#000000', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }}

@@ -40,6 +40,7 @@ export interface AppSettingsData {
   app_logo?: string;
   doc_logo_left?: string;
   doc_logo_right?: string;
+  hero_bg_image?: string;
   hospital_name?: string;
   phone?: string;
   address?: string;

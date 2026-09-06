@@ -67,6 +67,7 @@ interface AppState {
   appLogo: string | null;
   docLogoLeft: string | null;
   docLogoRight: string | null;
+  heroBgImage: string | null;
   eicvStock: number;
   eicvStatus: string;
   eicvNote: string;
@@ -78,6 +79,7 @@ interface AppContextType extends AppState {
   setAppLogo: (logo: string | null) => void | Promise<void>;
   setDocLogoLeft: (logo: string | null) => void | Promise<void>;
   setDocLogoRight: (logo: string | null) => void | Promise<void>;
+  setHeroBgImage: (bg: string | null) => void | Promise<void>;
   updateEicvAvailability: (stock: number, status: string, note?: string) => Promise<{ success: boolean; error?: string }>;
   updateUser: (updates: any) => Promise<void>;
   addBooking: (booking: Booking) => Promise<void>;
@@ -283,6 +285,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [appLogo, setAppLogoState] = useState<string | null>(() => localStorage.getItem('app_logo') || null);
   const [docLogoLeft, setDocLogoLeftState] = useState<string | null>(() => localStorage.getItem('sivaksin_doc_logo_left') || null);
   const [docLogoRight, setDocLogoRightState] = useState<string | null>(() => localStorage.getItem('sivaksin_doc_logo_right') || null);
+  const [heroBgImage, setHeroBgImageState] = useState<string | null>(() => localStorage.getItem('sivaksin_hero_bg_image') || null);
   const [eicvStock, setEicvStockState] = useState<number>(() => {
     const saved = localStorage.getItem('sivaksin_eicv_stock');
     return saved !== null ? parseInt(saved, 10) : 150;
@@ -351,6 +354,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setHeroBgImage = async (newBg: string | null) => {
+    setHeroBgImageState(newBg);
+    if (newBg) {
+      localStorage.setItem('sivaksin_hero_bg_image', newBg);
+    } else {
+      localStorage.removeItem('sivaksin_hero_bg_image');
+    }
+    window.dispatchEvent(new Event('sivaksin_hero_bg_updated'));
+
+    if (isSupabaseConfigured) {
+      try {
+        await saveAppSettingsToSupabase({ hero_bg_image: newBg || '' });
+      } catch (err: any) {
+        console.warn('Sync hero bg image to Supabase error:', err);
+      }
+    }
+  };
+
   const updateEicvAvailability = async (newStock: number, newStatus: string, newNote?: string) => {
     setEicvStockState(newStock);
     setEicvStatusState(newStatus);
@@ -384,6 +405,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setDocLogoLeftState(localStorage.getItem('sivaksin_doc_logo_left') || null);
       setDocLogoRightState(localStorage.getItem('sivaksin_doc_logo_right') || null);
     };
+    const handleHeroBgUpdate = () => {
+      setHeroBgImageState(localStorage.getItem('sivaksin_hero_bg_image') || null);
+    };
     const handleEicvUpdate = () => {
       const s = localStorage.getItem('sivaksin_eicv_stock');
       if (s !== null) setEicvStockState(parseInt(s, 10));
@@ -395,16 +419,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener('app_logo_updated', handleLogoUpdate);
     window.addEventListener('sivaksin_doc_logos_updated', handleDocLogosUpdate);
+    window.addEventListener('sivaksin_hero_bg_updated', handleHeroBgUpdate);
     window.addEventListener('sivaksin_eicv_updated', handleEicvUpdate);
     window.addEventListener('storage', handleLogoUpdate);
     window.addEventListener('storage', handleDocLogosUpdate);
+    window.addEventListener('storage', handleHeroBgUpdate);
     window.addEventListener('storage', handleEicvUpdate);
     return () => {
       window.removeEventListener('app_logo_updated', handleLogoUpdate);
       window.removeEventListener('sivaksin_doc_logos_updated', handleDocLogosUpdate);
+      window.removeEventListener('sivaksin_hero_bg_updated', handleHeroBgUpdate);
       window.removeEventListener('sivaksin_eicv_updated', handleEicvUpdate);
       window.removeEventListener('storage', handleLogoUpdate);
       window.removeEventListener('storage', handleDocLogosUpdate);
+      window.removeEventListener('storage', handleHeroBgUpdate);
       window.removeEventListener('storage', handleEicvUpdate);
     };
   }, []);
@@ -697,6 +725,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           } else {
             localStorage.removeItem('sivaksin_doc_logo_right');
             setDocLogoRightState(null);
+          }
+        }
+        if (settings.hero_bg_image !== undefined) {
+          if (settings.hero_bg_image) {
+            localStorage.setItem('sivaksin_hero_bg_image', settings.hero_bg_image);
+            setHeroBgImageState(settings.hero_bg_image);
+          } else {
+            localStorage.removeItem('sivaksin_hero_bg_image');
+            setHeroBgImageState(null);
           }
         }
         if (settings.eicv_stock !== undefined && settings.eicv_stock !== null) {
@@ -1132,6 +1169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         appLogo,
         docLogoLeft,
         docLogoRight,
+        heroBgImage,
         eicvStock,
         eicvStatus,
         eicvNote,
@@ -1140,6 +1178,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAppLogo,
         setDocLogoLeft,
         setDocLogoRight,
+        setHeroBgImage,
         updateEicvAvailability,
         updateUser,
         addBooking,

@@ -29,6 +29,8 @@ export default function Profile() {
     docLogoRight,
     setDocLogoLeft,
     setDocLogoRight,
+    heroBgImage,
+    setHeroBgImage,
     eicvStock,
     eicvStatus,
     eicvNote,
@@ -42,9 +44,10 @@ export default function Profile() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialViewParam = searchParams.get('view') as any;
-  const [currentView, setCurrentView] = useState<'main' | 'edit_profile' | 'support_data' | 'app_settings' | 'logo_settings' | 'doc_logo_settings' | 'vaccine_settings' | 'eicv_settings'>(
+  const [currentView, setCurrentView] = useState<'main' | 'edit_profile' | 'support_data' | 'app_settings' | 'logo_settings' | 'doc_logo_settings' | 'vaccine_settings' | 'eicv_settings' | 'hero_bg_settings'>(
     initialViewParam === 'doc_logo_settings' ? 'doc_logo_settings' : 
-    initialViewParam === 'eicv_settings' ? 'eicv_settings' : 'main'
+    initialViewParam === 'eicv_settings' ? 'eicv_settings' : 
+    initialViewParam === 'hero_bg_settings' ? 'hero_bg_settings' : 'main'
   );
 
   // Vaccine management states
@@ -95,6 +98,75 @@ export default function Profile() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const leftDocLogoInputRef = useRef<HTMLInputElement>(null);
   const rightDocLogoInputRef = useRef<HTMLInputElement>(null);
+  const heroBgInputRef = useRef<HTMLInputElement>(null);
+
+  // Hero Background Settings States
+  const [heroBgFile, setHeroBgFile] = useState<File | null>(null);
+  const [heroBgPreview, setHeroBgPreview] = useState<string | null>(heroBgImage || localStorage.getItem('sivaksin_hero_bg_image'));
+  const [isUploadingHeroBg, setIsUploadingHeroBg] = useState(false);
+  const [heroBgFeedback, setHeroBgFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    setHeroBgPreview(heroBgImage || localStorage.getItem('sivaksin_hero_bg_image'));
+  }, [heroBgImage]);
+
+  const handleHeroBgFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 8 * 1024 * 1024) {
+        alert('Ukuran file gambar maksimal 8MB.');
+        e.target.value = '';
+        return;
+      }
+      setHeroBgFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setHeroBgPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveHeroBg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUploadingHeroBg(true);
+    setHeroBgFeedback(null);
+    try {
+      let finalUrl = heroBgPreview;
+      if (heroBgFile) {
+        if (isSupabaseConfigured) {
+          const cloudRes = await uploadFileToSupabase(heroBgFile, 'assets', 'hero_bg');
+          if (cloudRes.success && cloudRes.url) {
+            finalUrl = cloudRes.url;
+          }
+        }
+      }
+      await setHeroBgImage(finalUrl);
+      setHeroBgFeedback({ type: 'success', text: 'Gambar background header Halaman Utama berhasil disimpan!' });
+      setTimeout(() => setHeroBgFeedback(null), 4000);
+    } catch (err: any) {
+      setHeroBgFeedback({ type: 'error', text: 'Gagal menyimpan: ' + (err.message || 'Error') });
+    } finally {
+      setIsUploadingHeroBg(false);
+    }
+  };
+
+  const handleResetHeroBg = async () => {
+    setIsUploadingHeroBg(true);
+    setHeroBgFeedback(null);
+    try {
+      await setHeroBgImage(null);
+      setHeroBgFile(null);
+      setHeroBgPreview(null);
+      if (heroBgInputRef.current) heroBgInputRef.current.value = '';
+      setHeroBgFeedback({ type: 'success', text: 'Background header dikembalikan ke tampilan default gradient.' });
+      setTimeout(() => setHeroBgFeedback(null), 4000);
+    } catch (err: any) {
+      setHeroBgFeedback({ type: 'error', text: 'Gagal mereset: ' + (err.message || 'Error') });
+    } finally {
+      setIsUploadingHeroBg(false);
+    }
+  };
 
   // Document Logos (Kop Surat: Kiri = Pemkot Sukabumi, Kanan = RSUD Al-Mulk)
   const [leftDocLogoFile, setLeftDocLogoFile] = useState<File | null>(null);
@@ -171,8 +243,18 @@ export default function Profile() {
           setDocLogoRight(saved);
         }
       }
+      if (settings?.hero_bg_image) {
+        setHeroBgPreview(settings.hero_bg_image);
+        setHeroBgImage(settings.hero_bg_image);
+      } else {
+        const saved = localStorage.getItem('sivaksin_hero_bg_image');
+        if (saved) {
+          setHeroBgPreview(saved);
+          setHeroBgImage(saved);
+        }
+      }
     });
-  }, [setAppLogo, setDocLogoLeft, setDocLogoRight]);
+  }, [setAppLogo, setDocLogoLeft, setDocLogoRight, setHeroBgImage]);
 
   const [supportData, setSupportData] = useState({
     nik: user?.nik || '',
@@ -2113,6 +2195,159 @@ export default function Profile() {
     );
   };
 
+  const renderHeroBgSettings = () => {
+    return (
+      <div className="bg-slate-50 min-h-screen pb-16 font-sans">
+        <div className="bg-white px-6 py-4 sticky top-0 z-40 shadow-xs border-b border-slate-200">
+          <div className="max-w-3xl mx-auto w-full flex items-center gap-3">
+            <button 
+              onClick={() => setCurrentView('main')} 
+              className="p-2 -ml-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="font-bold text-lg text-slate-900 leading-tight">
+                Pengaturan Background Header (Lindungi Diri Anda)
+              </h1>
+              <p className="text-xs text-slate-500">
+                Atur gambar latar belakang untuk banner header "Lindungi Diri Anda" pada Halaman Utama
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-6 space-y-6">
+          {heroBgFeedback && (
+            <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-bold border transition-all ${
+              heroBgFeedback.type === 'success' 
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                : 'bg-rose-50 text-rose-800 border-rose-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} />
+                <span>{heroBgFeedback.text}</span>
+              </div>
+              <button onClick={() => setHeroBgFeedback(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+          )}
+
+          {/* Pratinjau Live Card */}
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Pratinjau Widget Banner Header
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                {heroBgPreview ? 'Gambar Kustom Aktif' : 'Default Blue Gradient'}
+              </span>
+            </div>
+
+            <div 
+              className={`rounded-[28px] p-5 flex items-center justify-between relative overflow-hidden shadow-lg transition-all ${
+                heroBgPreview 
+                  ? 'border-none' 
+                  : 'bg-gradient-to-tr from-blue-700 via-blue-600 to-cyan-500 border border-white/20'
+              }`}
+              style={
+                heroBgPreview ? {
+                  backgroundImage: `linear-gradient(to right, rgba(0, 0, 0, 0.70) 0%, rgba(0, 0, 0, 0.30) 45%, rgba(0, 0, 0, 0) 85%), url(${heroBgPreview})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                } : undefined
+              }
+            >
+              <div className="relative z-10 flex-1 pt-4 sm:pt-5">
+                <h3 className="font-extrabold text-white text-[18px] mb-1.5 leading-tight tracking-tight drop-shadow-md">Lindungi Diri Anda</h3>
+                <div className="text-white/95 text-[12px] font-medium leading-tight space-y-0.5 drop-shadow-sm">
+                  <p>Dengan vaksinasi lengkap</p>
+                  <p>Perjalanan lebih tenang dan aman</p>
+                </div>
+              </div>
+              
+              <div className="relative w-24 h-24 flex items-center justify-center overflow-visible shrink-0">
+                <div className="bg-white/10 rounded-full p-3.5 backdrop-blur-md border border-white/30 shadow-xl relative overflow-hidden">
+                  <Syringe size={40} className="text-white opacity-90" strokeWidth={1.5} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Upload Gambar */}
+          <form onSubmit={handleSaveHeroBg} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-5">
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <ImageIcon size={18} className="text-blue-600" />
+              <span>Unggah Gambar Background Header Baru</span>
+            </h3>
+
+            <input 
+              type="file" 
+              accept="image/*" 
+              ref={heroBgInputRef} 
+              onChange={handleHeroBgFileSelect} 
+              className="hidden" 
+            />
+
+            <div 
+              onClick={() => heroBgInputRef.current?.click()}
+              className="border-2 border-dashed border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-blue-50/30 rounded-2xl p-6 text-center transition-all cursor-pointer group flex flex-col items-center justify-center gap-2"
+            >
+              <div className="w-12 h-12 bg-blue-100 group-hover:bg-blue-200 text-blue-600 rounded-2xl flex items-center justify-center transition-colors">
+                <UploadCloud size={24} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-800">Klik untuk Pilih Gambar dari Perangkat</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Format JPG, PNG, WEBP (Maksimal 8MB). Disarankan rasio landscape / banner.</p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between border-t border-slate-100 gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('main')}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Kembali
+                </button>
+
+                {heroBgPreview && (
+                  <button
+                    type="button"
+                    onClick={handleResetHeroBg}
+                    disabled={isUploadingHeroBg}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Trash2 size={14} />
+                    <span>Reset ke Default</span>
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isUploadingHeroBg}
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isUploadingHeroBg ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Menyimpan ke Cloud...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    <span>Simpan Gambar Background</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   if (currentView === 'edit_profile') return renderEditProfile();
   if (currentView === 'logo_settings') return renderLogoSettings();
   if (currentView === 'doc_logo_settings') return renderDocLogoSettings();
@@ -2120,6 +2355,7 @@ export default function Profile() {
   if (currentView === 'app_settings') return renderAppSettings();
   if (currentView === 'vaccine_settings') return renderVaccineSettings();
   if (currentView === 'eicv_settings') return renderEicvSettings();
+  if (currentView === 'hero_bg_settings') return renderHeroBgSettings();
 
   return (
     <div className="bg-slate-50 min-h-screen relative w-full h-full font-sans pb-12">
@@ -2285,6 +2521,12 @@ export default function Profile() {
               label="Pengaturan Ketersediaan E-ICV" 
               sublabel="Atur kuota blanko E-ICV & status ketersediaan realtime untuk Halaman Utama"
               onClick={() => setCurrentView('eicv_settings')} 
+            />
+            <MenuItem 
+              icon={<ImageIcon className="text-blue-600" />} 
+              label="Pengaturan Background Header (Lindungi Diri Anda)" 
+              sublabel="Atur gambar latar belakang kolom Lindungi Diri Anda pada Halaman Utama"
+              onClick={() => setCurrentView('hero_bg_settings')} 
             />
             <MenuItem 
               icon={<FileText className="text-indigo-600" />} 

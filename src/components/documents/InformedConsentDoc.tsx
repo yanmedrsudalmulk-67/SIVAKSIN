@@ -57,7 +57,7 @@ export default function InformedConsentDoc({
 
   return (
     <div
-      className={`bg-white text-black font-sans mx-auto p-4 sm:p-8 md:p-12 w-full max-w-[820px] shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-6 print:m-0 print:max-w-none ${
+      className={`bg-white text-black font-sans mx-auto p-3.5 sm:p-8 md:p-12 w-full max-w-[820px] shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-6 print:m-0 print:max-w-none ${
         isPrintMode ? 'print-container' : ''
       }`}
       style={{ minHeight: '330mm', color: '#000000', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }}
@@ -78,11 +78,11 @@ export default function InformedConsentDoc({
 
         <div className="space-y-3 sm:space-y-1.5 pl-0 sm:pl-4">
           <div className="grid grid-cols-12 gap-1 items-baseline">
-            <div className="col-span-12 sm:col-span-3 flex justify-between pr-2">
+            <div className="col-span-3 flex justify-between pr-2">
               <span>Nama</span>
-              <span className="hidden sm:inline-block">:</span>
+              <span>:</span>
             </div>
-            <div className="col-span-12 sm:col-span-9 border-b border-dotted border-black/70 font-semibold px-1 pb-0.5 min-h-[20px]">
+            <div className="col-span-9 border-b border-dotted border-black/70 font-semibold px-1 pb-0.5 min-h-[20px]">
               {nama}
             </div>
           </div>

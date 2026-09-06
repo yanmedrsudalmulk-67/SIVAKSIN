@@ -11,12 +11,13 @@ import {
 import { useAppStore } from '../store/AppContext';
 
 export default function Home() {
-  const { user, role, vaccines, bookings, appLogo, notifications, eicvStock, eicvStatus, eicvNote } = useAppStore();
+  const { user, role, vaccines, bookings, appLogo, heroBgImage, notifications, eicvStock, eicvStatus, eicvNote } = useAppStore();
   const navigate = useNavigate();
   const [showAllMenu, setShowAllMenu] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(appLogo || localStorage.getItem('app_logo'));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatar_url || user?.avatar || localStorage.getItem('sivaksin_user_avatar'));
+  const [currentHeroBg, setCurrentHeroBg] = useState<string | null>(heroBgImage || localStorage.getItem('sivaksin_hero_bg_image'));
 
   const userAvatar = avatarUrl || user?.avatar_url || user?.avatar || localStorage.getItem('sivaksin_user_avatar');
 
@@ -35,6 +36,15 @@ export default function Home() {
     window.addEventListener('app_logo_updated', handleUpdate);
     return () => window.removeEventListener('app_logo_updated', handleUpdate);
   }, [appLogo]);
+
+  useEffect(() => {
+    setCurrentHeroBg(heroBgImage || localStorage.getItem('sivaksin_hero_bg_image'));
+    const handleHeroBgUpdate = () => {
+      setCurrentHeroBg(localStorage.getItem('sivaksin_hero_bg_image'));
+    };
+    window.addEventListener('sivaksin_hero_bg_updated', handleHeroBgUpdate);
+    return () => window.removeEventListener('sivaksin_hero_bg_updated', handleHeroBgUpdate);
+  }, [heroBgImage]);
 
   useEffect(() => {
     setAvatarUrl(user?.avatar_url || user?.avatar || localStorage.getItem('sivaksin_user_avatar'));
@@ -218,10 +228,6 @@ export default function Home() {
             <path d="M0 180C50 170 150 170 200 180V200H0V180Z" fill="white" opacity="0.2" />
           </svg>
         </div>
-
-        {/* Glow Effects */}
-        <div className="absolute -top-10 -right-10 w-80 h-80 bg-cyan-400 rounded-full mix-blend-screen filter blur-[90px] opacity-20 pointer-events-none animate-pulse"></div>
-        <div className="absolute top-20 -left-20 w-60 h-60 bg-blue-400 rounded-full mix-blend-screen filter blur-[80px] opacity-30 pointer-events-none"></div>
         
         {/* Shimmer Effect */}
         <div className="absolute inset-x-0 top-0 h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 translate-x-[-100%] animate-[shimmer_8s_infinite]"></div>
@@ -274,11 +280,22 @@ export default function Home() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-7 bg-white/20 backdrop-blur-xl border border-white/30 rounded-[30px] p-5 flex items-center justify-between relative overflow-hidden group shadow-2xl"
+          className={`mt-7 rounded-[30px] p-5 flex items-center justify-between relative overflow-hidden group shadow-2xl transition-all ${
+            currentHeroBg 
+              ? 'border-none' 
+              : 'bg-white/20 backdrop-blur-xl border border-white/30'
+          }`}
+          style={
+            currentHeroBg ? {
+              backgroundImage: `linear-gradient(to right, rgba(0, 0, 0, 0.70) 0%, rgba(0, 0, 0, 0.30) 45%, rgba(0, 0, 0, 0) 85%), url(${currentHeroBg})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            } : undefined
+          }
         >
-          <div className="relative z-10 flex-1">
-             <h3 className="font-extrabold text-white text-[18px] mb-1.5 leading-tight tracking-tight">Lindungi Diri Anda</h3>
-             <div className="text-white/90 text-[12px] font-medium leading-tight space-y-0.5">
+          <div className="relative z-10 flex-1 pt-4 sm:pt-5">
+             <h3 className="font-extrabold text-white text-[18px] mb-1.5 leading-tight tracking-tight drop-shadow-md">Lindungi Diri Anda</h3>
+             <div className="text-white/95 text-[12px] font-medium leading-tight space-y-0.5 drop-shadow-sm">
                 <p>Dengan vaksinasi lengkap</p>
                 <p>Perjalanan lebih tenang dan aman</p>
              </div>
@@ -357,9 +374,9 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setShowAllMenu(!showAllMenu)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-100/90 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-100/90 hover:bg-slate-200 text-brand-600 hover:text-brand-700 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
                 >
-                  <span>{showAllMenu ? 'Ringkas Menu (Tampilkan 8 Menu)' : `Selengkapnya (${allMenuItems.length - 8} Layanan Lainnya)`}</span>
+                  <span>{showAllMenu ? 'Ringkas Menu (Tampilkan 8 Menu)' : 'Lihat menu lainnya'}</span>
                   {showAllMenu ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </button>
               </div>
@@ -602,17 +619,17 @@ export default function Home() {
             </div>
 
             {/* Widget Ketersediaan E-ICV Realtime */}
-            <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 text-white rounded-[28px] p-5 shadow-lg border border-emerald-500/30 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="bg-gradient-to-br from-[#0F3DDE] via-[#2563EB] to-[#06B6D4] text-white rounded-[28px] p-5 shadow-lg border border-blue-400/30 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
               
               <div className="flex items-center justify-between mb-3 relative z-10">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-400/30 shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center border border-white/30 shrink-0 shadow-inner">
                     <Award size={18} />
                   </div>
                   <div>
                     <h4 className="font-extrabold text-xs text-white">Ketersediaan E-ICV</h4>
-                    <p className="text-[10px] text-emerald-300">Buku Kuning Internasional</p>
+                    <p className="text-[10px] text-blue-100">Buku Kuning Internasional</p>
                   </div>
                 </div>
                 <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-xs ${

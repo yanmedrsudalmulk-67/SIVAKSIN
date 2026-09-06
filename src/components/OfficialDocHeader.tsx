@@ -150,49 +150,49 @@ export default function OfficialDocHeader({ fontFamily, className = '' }: Offici
       className={`w-full text-black pb-2 ${className}`}
       style={fontFamily ? { fontFamily } : undefined}
     >
-      <div className="flex items-center justify-between gap-2 px-2">
+      <div className="flex items-center justify-between gap-1 sm:gap-2 px-1 sm:px-2">
         {/* Left: Logo Pemerintah Kota Sukabumi */}
-        <div className="w-20 sm:w-24 shrink-0 flex items-center justify-center">
+        <div className="w-10 sm:w-20 md:w-24 print:w-24 shrink-0 flex items-center justify-center">
           {docLogoLeft ? (
             <img
               src={docLogoLeft}
               alt="Logo Pemerintah Kota Sukabumi"
-              className="w-16 h-20 sm:w-20 sm:h-24 object-contain"
+              className="w-10 h-12 sm:w-16 sm:h-20 md:w-20 md:h-24 print:w-20 print:h-24 object-contain"
             />
           ) : (
-            <SukabumiCoatOfArms className="w-16 h-20 sm:w-20 sm:h-24" />
+            <SukabumiCoatOfArms className="w-10 h-12 sm:w-16 sm:h-20 md:w-20 md:h-24 print:w-20 print:h-24" />
           )}
         </div>
 
         {/* Center: Kop Surat Instansi Resmi */}
-        <div className="flex-1 text-center leading-tight">
-          <h2 className="text-[14px] sm:text-[17px] md:text-[19px] font-black tracking-wider uppercase text-black" style={{ color: '#000000' }}>
+        <div className="flex-1 text-center leading-tight min-w-0">
+          <h2 className="text-[10px] sm:text-[16px] md:text-[19px] print:text-[19px] font-black tracking-normal sm:tracking-wider uppercase text-black whitespace-nowrap sm:whitespace-normal" style={{ color: '#000000' }}>
             PEMERINTAH KOTA SUKABUMI
           </h2>
-          <h3 className="text-[13px] sm:text-[16px] md:text-[18px] font-black tracking-wider uppercase text-black mt-0.5" style={{ color: '#000000' }}>
+          <h3 className="text-[9px] sm:text-[15px] md:text-[18px] print:text-[18px] font-black tracking-normal sm:tracking-wider uppercase text-black mt-0.5 whitespace-nowrap sm:whitespace-normal" style={{ color: '#000000' }}>
             DINAS KESEHATAN
           </h3>
-          <h1 className="text-[15px] sm:text-[18px] md:text-[21px] font-black tracking-wide uppercase text-black mt-0.5" style={{ color: '#000000' }}>
+          <h1 className="text-[11px] sm:text-[17px] md:text-[21px] print:text-[21px] font-black tracking-tight sm:tracking-wide uppercase text-black mt-0.5 whitespace-nowrap sm:whitespace-normal" style={{ color: '#000000' }}>
             UOBK RSUD AL-MULK
           </h1>
-          <p className="text-[10px] sm:text-[11px] md:text-[12px] font-semibold text-black mt-1 leading-snug" style={{ color: '#000000' }}>
+          <p className="text-[7.5px] sm:text-[10.5px] md:text-[12px] print:text-[12px] font-semibold text-black mt-0.5 sm:mt-1 leading-tight sm:leading-snug" style={{ color: '#000000' }}>
             Jl. Pelabuhan II KM 6, Lembursitu Kota Sukabumi Tlp.(0266) 6243088
           </p>
-          <p className="text-[10px] sm:text-[11px] md:text-[12px] font-semibold text-black leading-snug" style={{ color: '#000000' }}>
+          <p className="text-[7.5px] sm:text-[10.5px] md:text-[12px] print:text-[12px] font-semibold text-black leading-tight sm:leading-snug" style={{ color: '#000000' }}>
             Kode Pos 43169 email: <span className="underline font-bold" style={{ color: '#1e3a8a' }}>rsudalmulk@gmail.com</span>
           </p>
         </div>
 
         {/* Right: Logo RSUD Al-Mulk */}
-        <div className="w-20 sm:w-24 shrink-0 flex items-center justify-center">
+        <div className="w-10 sm:w-20 md:w-24 print:w-24 shrink-0 flex items-center justify-center">
           {docLogoRight ? (
             <img
               src={docLogoRight}
               alt="Logo RSUD Al-Mulk"
-              className="w-16 h-20 sm:w-20 sm:h-24 object-contain"
+              className="w-10 h-12 sm:w-16 sm:h-20 md:w-20 md:h-24 print:w-20 print:h-24 object-contain"
             />
           ) : (
-            <RsudAlMulkLogo className="w-16 h-20 sm:w-20 sm:h-24" />
+            <RsudAlMulkLogo className="w-10 h-12 sm:w-16 sm:h-20 md:w-20 md:h-24 print:w-20 print:h-24" />
           )}
         </div>
       </div>
