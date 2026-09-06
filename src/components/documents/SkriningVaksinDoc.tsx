@@ -121,7 +121,7 @@ export default function SkriningVaksinDoc({
       className={`bg-white text-black font-sans mx-auto p-4 sm:p-8 md:p-10 w-full max-w-[840px] shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-6 print:m-0 print:max-w-none ${
         isPrintMode ? 'print-container' : ''
       }`}
-      style={{ minHeight: '297mm', color: '#000000', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }}
+      style={{ minHeight: '330mm', color: '#000000', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }}
     >
       {/* Official Header matching original scan */}
       <OfficialDocHeader fontFamily="Arial, Helvetica, sans-serif" />
@@ -153,12 +153,12 @@ export default function SkriningVaksinDoc({
         <table className="w-full min-w-[500px] border-collapse border border-black text-[10px] sm:text-[11px] font-sans">
           <thead>
             <tr className="bg-slate-100 print:bg-slate-100 font-bold text-center border-b border-black">
-              <th className="border border-black p-1.5 w-8">No</th>
-              <th className="border border-black p-1.5 text-left">Pertanyaan</th>
-              <th className="border border-black p-1.5 w-12 text-center">Ya</th>
-              <th className="border border-black p-1.5 w-14 text-center">Tidak</th>
-              <th className="border border-black p-1.5 w-16 text-center">Tidak Tahu</th>
-              <th className="border border-black p-1.5 w-32 text-center">Keterangan</th>
+              <th className="border border-black p-1.5 w-8 text-center align-middle">No</th>
+              <th className="border border-black p-1.5 text-left align-middle">Pertanyaan</th>
+              <th className="border border-black p-1.5 w-12 text-center align-middle">Ya</th>
+              <th className="border border-black p-1.5 w-14 text-center align-middle">Tidak</th>
+              <th className="border border-black p-1.5 w-16 text-center align-middle">Tidak Tahu</th>
+              <th className="border border-black p-1.5 w-32 text-center align-middle">Keterangan</th>
             </tr>
           </thead>
           <tbody>
@@ -166,9 +166,9 @@ export default function SkriningVaksinDoc({
               const currentAns = answers[idx];
               return (
                 <tr key={idx} className="border-b border-black hover:bg-slate-50/50">
-                  <td className="border border-black p-1.5 text-center font-bold">{idx + 1}</td>
-                  <td className="border border-black p-1.5 leading-snug">{question}</td>
-                  <td className="border border-black p-1 text-center">
+                  <td className="border border-black p-1.5 text-center align-middle font-bold">{idx + 1}</td>
+                  <td className="border border-black p-1.5 align-middle leading-snug">{question}</td>
+                  <td className="border border-black p-1 text-center align-middle">
                     <button
                       type="button"
                       disabled={!canEdit}
@@ -182,7 +182,7 @@ export default function SkriningVaksinDoc({
                       {currentAns === 'ya' ? '✓' : ''}
                     </button>
                   </td>
-                  <td className="border border-black p-1 text-center">
+                  <td className="border border-black p-1 text-center align-middle">
                     <button
                       type="button"
                       disabled={!canEdit}
@@ -196,7 +196,7 @@ export default function SkriningVaksinDoc({
                       {currentAns === 'tidak' ? '✓' : ''}
                     </button>
                   </td>
-                  <td className="border border-black p-1 text-center">
+                  <td className="border border-black p-1 text-center align-middle">
                     <button
                       type="button"
                       disabled={!canEdit}
@@ -210,14 +210,14 @@ export default function SkriningVaksinDoc({
                       {currentAns === 'tidak_tahu' ? '✓' : ''}
                     </button>
                   </td>
-                  <td className="border border-black p-1">
+                  <td className="border border-black p-1 text-center align-middle">
                     <input
                       type="text"
                       disabled={!canEdit}
                       value={keterangan[idx] || ''}
                       onChange={(e) => handleKeteranganChange(idx, e.target.value)}
                       placeholder="-"
-                      className="w-full text-[10px] px-1 py-0.5 bg-transparent outline-none border-b border-dotted border-black/30 focus:border-black"
+                      className="w-full text-[10px] px-1 py-0.5 bg-transparent outline-none border-b border-dotted border-black/30 focus:border-black text-center"
                     />
                   </td>
                 </tr>

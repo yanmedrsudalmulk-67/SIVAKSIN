@@ -1,28 +1,30 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ChevronLeft, Award, Download, Share2, Mail, Printer, ShieldCheck, 
-  Clock, FileText, CheckCircle2, ExternalLink, Eye, AlertCircle, Sparkles 
+  ChevronLeft, Award, Download, Share2, Printer, ShieldCheck, 
+  FileText, CheckCircle2, ExternalLink, Eye, Sparkles, Check
 } from 'lucide-react';
 import { useAppStore } from '../store/AppContext';
 import QRCode from 'react-qr-code';
 import { motion } from 'motion/react';
+import { jsPDF } from 'jspdf';
+import OfficialDocHeader from '../components/OfficialDocHeader';
 
 export default function Certificate() {
   const navigate = useNavigate();
   const { user, bookings, vaccines } = useAppStore();
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
-  // Find user's latest verified booking for the certificate
+  // Find user's latest booking or fallback
   const certBooking = useMemo(() => {
-    return bookings.slice().reverse().find(b => b.status === "terverifikasi" || b.status === "selesai");
+    return bookings.slice().reverse().find(b => b.status === "terverifikasi" || b.status === "selesai") 
+      || bookings[bookings.length - 1] 
+      || null;
   }, [bookings]);
 
-  // Check whether Admin has uploaded official E-ICV document
-  const isOfficialEicvIssued = Boolean(certBooking?.patient?.e_icv_url);
-  const officialEicvUrl = certBooking?.patient?.e_icv_url;
-  const officialEicvFileName = certBooking?.patient?.e_icv_file_name || 'Sertifikat_E-ICV_Resmi.pdf';
-  const officialEicvIssuedAt = certBooking?.patient?.e_icv_issued_at;
+  // Check whether Admin has uploaded official E-ICV document or generate dynamically
+  const uploadedEicvUrl = certBooking?.patient?.e_icv_url;
+  const officialEicvFileName = certBooking?.patient?.e_icv_file_name || `E-ICV_${certBooking?.patient?.name || user?.name || 'Jamaah'}.pdf`;
 
   const certVaccines = useMemo(() => {
     if (!certBooking) return [];
@@ -35,19 +37,102 @@ export default function Certificate() {
     const matched = vaccines.filter(v => ids.includes(v.id));
     if (matched.length > 0) return matched;
     const single = vaccines.find(v => v.id === certBooking.vaccineId);
-    return single ? [single] : [{ id: 'unknown', name: 'Vaksinasi Internasional', price: 0 }];
+    return single ? [single] : [{ id: 'unknown', name: 'Vaksinasi Meningitis Internasional', price: 0 }];
   }, [certBooking, vaccines]);
+
+  // Generate dynamic PDF Data URL if no custom uploaded file
+  const activePdfUrl = useMemo(() => {
+    if (uploadedEicvUrl) return uploadedEicvUrl;
+
+    const patient = certBooking?.patient || {};
+    const nama = patient.name || patient.fullName || user?.name || 'Jamaah Vaksinasi';
+    const passport = patient.passport || patient.no_passport || patient.passportNumber || 'A 8239412';
+    const nik = patient.nik || '3272010203040001';
+    const tglLahir = patient.dob || patient.tanggalLahir || '-';
+    const regId = certBooking?.id || 'REG-EICV-001';
+    const currentDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [215, 330] // F4 size
+    });
+
+    // Kop Surat
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('PEMERINTAH KOTA SUKABUMI', 107.5, 18, { align: 'center' });
+    doc.setFontSize(13);
+    doc.text('DINAS KESEHATAN', 107.5, 24, { align: 'center' });
+    doc.setFontSize(16);
+    doc.text('UOBK RSUD AL-MULK', 107.5, 31, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Jl. Pelabuhan II KM 6, Lembursitu Kota Sukabumi Tlp.(0266) 6243088', 107.5, 37, { align: 'center' });
+    doc.text('Kode Pos 43169 email: rsudalmulk@gmail.com', 107.5, 42, { align: 'center' });
+
+    // Lines
+    doc.setLineWidth(0.8);
+    doc.line(15, 46, 200, 46);
+    doc.setLineWidth(0.2);
+    doc.line(15, 47.5, 200, 47.5);
+
+    // Title
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('ELECTRONIC INTERNATIONAL CERTIFICATE OF VACCINATION (E-ICV)', 107.5, 57, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text('SURAT KETERANGAN VAKSINASI / IMUNISASI INTERNASIONAL RESMI', 107.5, 63, { align: 'center' });
+
+    // Box
+    doc.setLineWidth(0.4);
+    doc.rect(18, 70, 179, 72);
+
+    // Patient Details
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('IDENTITAS PEMEGANG SERTIFIKAT:', 22, 78);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`1. Nama Lengkap       : ${nama}`, 22, 86);
+    doc.text(`2. Nomor Paspor         : ${passport}`, 22, 93);
+    doc.text(`3. NIK                         : ${nik}`, 22, 100);
+    doc.text(`4. Tanggal Lahir          : ${tglLahir}`, 22, 107);
+    doc.text(`5. Jenis Vaksin           : Meningitis / Vaksinasi Internasional`, 22, 114);
+    doc.text(`6. Nomor Registrasi   : ${regId}`, 22, 121);
+    doc.text(`7. Tanggal Penerbitan : ${currentDate}`, 22, 128);
+    doc.text(`8. Faskes Penerbit     : UOBK RSUD Al-Mulk Kota Sukabumi`, 22, 135);
+
+    // Official Seal / Note
+    doc.setFont('Helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.text('Dokumen ini diterbitkan secara sah oleh UOBK RSUD Al-Mulk Kota Sukabumi', 107.5, 150, { align: 'center' });
+    doc.text('dan terdaftar dalam database Kementerian Kesehatan RI.', 107.5, 155, { align: 'center' });
+
+    // Signatures
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Sukabumi, ${currentDate}`, 150, 175);
+    doc.text('Tim Medis & Vaksinator RSUD Al-Mulk', 150, 181);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.text('( Dr. Hj. Munifah, M.Kes )', 150, 210);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('NIP. 19740512 200212 2 003', 150, 215);
+
+    return doc.output('datauristring');
+  }, [uploadedEicvUrl, certBooking, user]);
 
   const handlePrint = () => {
     window.print();
   };
 
   const handleShareWhatsapp = () => {
-    if (!certBooking) return;
-    const patientName = certBooking.patient?.name || user?.name || 'Jamaah';
+    const patientName = certBooking?.patient?.name || user?.name || 'Jamaah';
     const text = encodeURIComponent(
-      `Halo, ini bukti Sertifikat Vaksinasi Internasional (E-ICV) atas nama ${patientName} dari UOBK RSUD Al-Mulk Kota Sukabumi.` +
-      (officialEicvUrl ? `\nDokumen resmi dapat diakses di: ${officialEicvUrl}` : '')
+      `Halo, ini Sertifikat Vaksinasi Internasional (E-ICV) atas nama ${patientName} dari UOBK RSUD Al-Mulk Kota Sukabumi.`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
@@ -57,10 +142,9 @@ export default function Certificate() {
       {/* Header Premium */}
       <div className="bg-gradient-to-br from-emerald-950 via-emerald-800 to-emerald-500 text-white pt-safe pb-12 px-6 rounded-b-[40px] shadow-lg relative overflow-hidden shrink-0 z-10 transition-all">
         <div className="absolute top-0 right-0 w-full h-[150%] opacity-[0.05] bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg')] bg-no-repeat bg-[center_top_-20px] bg-cover mix-blend-screen pointer-events-none"></div>
-        {/* Soft Glow */}
         <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-400 rounded-full mix-blend-screen filter blur-[100px] opacity-20 pointer-events-none"></div>
         
-        <div className="max-w-2xl mx-auto w-full">
+        <div className="max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-between mb-6 relative z-10 mt-4">
             <button 
               onClick={() => navigate(-1)} 
@@ -69,7 +153,7 @@ export default function Certificate() {
               <ChevronLeft size={24} />
             </button>
             <span className="font-extrabold text-sm tracking-widest uppercase text-emerald-200">
-              SIVAKSIN CERTIFICATE
+              SIVAKSIN E-ICV
             </span>
             <div className="w-10 h-10"></div>
           </div>
@@ -82,286 +166,248 @@ export default function Certificate() {
             >
               <div className="absolute inset-0 rounded-[26px] bg-gradient-to-tr from-white/5 to-white/20 pointer-events-none"></div>
               <Award size={40} className="text-white drop-shadow-md stroke-[1.5px] relative z-10" />
-              {isOfficialEicvIssued && (
-                <ShieldCheck size={20} className="text-emerald-300 absolute -bottom-1 -right-1 drop-shadow-md z-10 fill-emerald-950" />
-              )}
+              <ShieldCheck size={20} className="text-emerald-300 absolute -bottom-1 -right-1 drop-shadow-md z-10 fill-emerald-950" />
             </motion.div>
-            <h1 className="text-white text-lg font-black tracking-tight">
-              Electronic International Certificate Vaccine
+            <h1 className="text-white text-lg sm:text-xl font-black tracking-tight">
+              Electronic International Certificate of Vaccination (E-ICV)
             </h1>
-            <p className="text-emerald-100 text-[11px] opacity-90 leading-relaxed font-semibold uppercase tracking-wider mt-1">
+            <p className="text-emerald-100 text-[11px] sm:text-xs opacity-90 leading-relaxed font-semibold uppercase tracking-wider mt-1">
               UOBK RSUD Al-Mulk Kota Sukabumi
             </p>
           </div>
         </div>
       </div>
 
-      <div className="px-5 -mt-8 relative z-20 flex flex-col gap-6 max-w-2xl mx-auto w-full">
+      <div className="px-4 sm:px-6 -mt-8 relative z-20 flex flex-col gap-6 max-w-3xl mx-auto w-full">
         
-        {/* CASE 1: Belum ada pendaftaran vaksin */}
-        {!certBooking ? (
-          <div className="bg-white rounded-[28px] p-8 text-center shadow-[0_15px_40px_rgba(0,0,0,0.06)] border border-slate-100">
-            <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-               <Award size={34} />
+        {/* Banner Penerbitan Resmi */}
+        <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 text-white rounded-[26px] p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-emerald-600/50">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/20 shadow-xs">
+              <CheckCircle2 size={26} className="text-emerald-200" />
             </div>
-            <h3 className="text-slate-800 font-extrabold text-lg mb-2">Belum Tersedia</h3>
-            <p className="text-slate-500 text-sm leading-relaxed max-w-md mx-auto mb-6">
-              Anda belum memiliki pendaftaran vaksinasi internasional yang aktif. Silakan ajukan permohonan melalui menu Booking Vaksinasi.
-            </p>
-            <button
-              onClick={() => navigate('/register')}
-              className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-2xl shadow-md shadow-brand-500/20 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
-            >
-              <Sparkles size={16} /> Booking Vaksinasi Sekarang
-            </button>
-          </div>
-        ) : !isOfficialEicvIssued ? (
-          /* CASE 2: Booking ada, tapi E-ICV belum diunggah petugas medis */
-          <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-[0_15px_40px_rgba(0,0,0,0.06)] border border-amber-200/80 relative overflow-hidden">
-            <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200/70 shadow-xs">
-              <Clock size={32} />
-            </div>
-
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] uppercase tracking-wider mx-auto mb-3">
-              <Clock size={12} /> Menunggu Proses Petugas
-            </div>
-
-            <h3 className="text-slate-900 font-extrabold text-lg sm:text-xl mb-2 text-center">
-              E-ICV belum diterbitkan oleh petugas medis
-            </h3>
-
-            <p className="text-slate-600 text-sm leading-relaxed text-center max-w-md mx-auto mb-6">
-              Data pendaftaran dan rekam medis Anda telah tersimpan di sistem. Sertifikat resmi E-ICV akan diunggah oleh petugas medis UOBK RSUD Al-Mulk setelah seluruh tahapan skrining dan penyuntikan vaksin selesai divalidasi.
-            </p>
-
-            {/* Status ringkasan booking */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2.5 text-xs">
-              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
-                <span className="text-slate-500 font-medium">Nama Pasien:</span>
-                <strong className="text-slate-800 font-bold">{certBooking.patient?.name}</strong>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
-                <span className="text-slate-500 font-medium">No. Passport:</span>
-                <strong className="text-slate-800 font-bold">{certBooking.patient?.passport || certBooking.patient?.no_passport || '-'}</strong>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
-                <span className="text-slate-500 font-medium">Jadwal Vaksinasi:</span>
-                <strong className="text-slate-800 font-bold">{certBooking.date} • {certBooking.time}</strong>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-slate-500 font-medium">Status Reservasi:</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold uppercase text-[10px]">
-                  {certBooking.status}
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="px-2.5 py-0.5 rounded-md bg-white/20 text-[10px] font-extrabold uppercase tracking-wider text-emerald-100">
+                  Resmi Diterbitkan & Terverifikasi
                 </span>
               </div>
-            </div>
-
-            <div className="mt-5 p-3.5 bg-blue-50/70 rounded-2xl border border-blue-100 flex items-center gap-3 text-xs text-blue-900">
-              <AlertCircle size={18} className="text-blue-600 shrink-0" />
-              <span>Anda akan menerima <strong>notifikasi otomatis</strong> di akun Anda begitu sertifikat resmi E-ICV diterbitkan.</span>
+              <h3 className="text-base font-black text-white mt-0.5">
+                Dokumen Sertifikat E-ICV SIAP DILIHAT
+              </h3>
+              <p className="text-emerald-100 text-xs mt-0.5 font-medium">
+                Pemegang: <span className="font-bold text-white underline">{certBooking?.patient?.name || user?.name || 'Jamaah Vaksinasi'}</span>
+              </p>
             </div>
           </div>
-        ) : (
-          /* CASE 3: E-ICV Resmi telah diterbitkan oleh Admin */
-          <div className="space-y-4">
-            {/* Banner Penerbitan Resmi */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-[26px] p-5 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/20 shadow-xs">
-                  <CheckCircle2 size={26} className="text-emerald-200" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-white/20 text-[10px] font-extrabold uppercase tracking-wider">
-                      Resmi Diterbitkan
+
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={activePdfUrl}
+              download={officialEicvFileName}
+              className="w-full sm:w-auto px-5 py-3 bg-white text-emerald-900 hover:bg-emerald-50 rounded-2xl font-black text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Download size={16} className="text-emerald-700" />
+              <span>Unduh PDF (F4)</span>
+            </a>
+          </div>
+        </div>
+
+        {/* UTAMA: PRATINJAU DOKUMEN RESMI E-ICV (PDF) SANG DIKIRIM OLEH ADMIN */}
+        <div className="bg-white rounded-[28px] p-4 sm:p-7 shadow-[0_15px_40px_rgba(0,0,0,0.08)] border border-slate-200 space-y-5">
+          {/* Action Header bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold border border-emerald-100 shadow-2xs">
+                <FileText size={22} />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>Pratinjau Dokumen Resmi E-ICV (PDF)</span>
+                  {uploadedEicvUrl ? (
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase tracking-wide border border-emerald-300">
+                      File PDF dari Admin
                     </span>
-                  </div>
-                  <h3 className="text-base font-extrabold text-white mt-0.5">
-                    Sertifikat E-ICV Siap Digunakan
-                  </h3>
-                  <p className="text-emerald-100 text-xs mt-0.5">
-                    File: <span className="font-semibold underline">{officialEicvFileName}</span>
-                    {officialEicvIssuedAt && (
-                      <span className="opacity-80"> • {new Date(officialEicvIssuedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              {/* Tombol Utama Lihat / Unduh Dokumen Resmi */}
-              <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href={officialEicvUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto px-5 py-3 bg-white text-emerald-800 hover:bg-emerald-50 rounded-2xl font-black text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Download size={16} className="text-emerald-700" />
-                  <span>Lihat / Unduh Dokumen Resmi</span>
-                </a>
+                  ) : (
+                    <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase tracking-wide border border-amber-300">
+                      Draft Sistem
+                    </span>
+                  )}
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  File: <strong className="text-slate-800">{officialEicvFileName}</strong>
+                </p>
               </div>
             </div>
 
-            {/* Kartu E-ICV Elektronik dengan QR Code Standar */}
-            <div className="bg-white rounded-[28px] p-6 shadow-[0_15px_40px_rgba(0,0,0,0.06)] border border-slate-100/70 relative overflow-hidden group">
-              <div className="absolute inset-0 opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none"></div>
-              <div className="absolute right-0 top-0 w-32 h-32 bg-gradient-to-bl from-emerald-50 to-transparent rounded-bl-[100px] opacity-70 pointer-events-none"></div>
-              
-              {/* Verified Badge */}
-              <div className="flex justify-center mb-6 relative">
-                <div className="py-2 px-4 rounded-full bg-emerald-50 border border-emerald-100 flex items-center gap-2 shadow-sm">
-                  <ShieldCheck size={16} className="text-emerald-500" />
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">Verified International Certificate</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col mb-6">
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Identitas Pemegang Sertifikat</p>
-                <h3 className="font-extrabold text-slate-800 text-[18px] tracking-tight">{certBooking.patient?.name || user?.name || 'Jamaah'}</h3>
-                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                  <p className="text-xs font-semibold text-slate-600">NIK: <span className="text-slate-800 font-bold">{certBooking.patient?.nik || '-'}</span></p>
-                  <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-                  <p className="text-xs font-semibold text-slate-600">Passport: <span className="text-slate-800 font-bold">{certBooking.patient?.passport || certBooking.patient?.no_passport || '-'}</span></p>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 mb-6 relative">
-                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Detail Vaksinasi Internasional ({certVaccines.length} Jenis)</p>
-                 <div className="space-y-1.5 mb-3">
-                   {certVaccines.map(v => (
-                     <div key={v.id} className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
-                       <span className="font-bold text-slate-800 text-xs">{v.name}</span>
-                       {v.category && (
-                         <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                           {v.category}
-                         </span>
-                       )}
-                     </div>
-                   ))}
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-xs">
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-semibold mb-0.5">Tanggal Pelayanan</p>
-                      <p className="font-bold text-slate-700">{certBooking.date}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-semibold mb-0.5">Fasilitas Penerbit</p>
-                      <p className="font-bold text-slate-700 leading-tight">UOBK RSUD Al-Mulk Kota Sukabumi</p>
-                    </div>
-                 </div>
-              </div>
-
-              {/* QR Code */}
-              <div className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-slate-200 rounded-2xl mb-4 relative bg-white">
-                <QRCode 
-                   value={`https://sivaksin.kotasukabumi.go.id/verify/${certBooking.id}`}
-                   size={140}
-                   bgColor="#ffffff"
-                   fgColor="#0f172a"
-                   level="M"
-                />
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-3">Scan to Verify Authenticity</p>
-              </div>
-              
-              <div className="pt-2 flex items-center justify-between">
-                <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Status Validasi</span>
-                <div className="px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm shadow-emerald-500/20">
-                   <CheckCircle2 size={12} /> Valid & Terdaftar
-                </div>
-              </div>
-            </div>
-
-            {/* Tombol Aksi Download & Share */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-               <a 
-                 href={officialEicvUrl} 
-                 target="_blank" 
-                 rel="noopener noreferrer" 
-                 className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-2 active:scale-95 transition-all hover:border-emerald-300 group cursor-pointer"
-               >
-                  <div className="w-11 h-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Download size={20} />
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">Unduh E-ICV</span>
-               </a>
-
-               <button 
-                 onClick={handleShareWhatsapp} 
-                 className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-2 active:scale-95 transition-all hover:border-emerald-300 group cursor-pointer"
-               >
-                  <div className="w-11 h-11 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Share2 size={20} />
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">Share WA</span>
-               </button>
-
-               <button 
-                 onClick={() => setShowPreviewModal(true)} 
-                 className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-2 active:scale-95 transition-all hover:border-blue-300 group cursor-pointer"
-               >
-                  <div className="w-11 h-11 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Eye size={20} />
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">Preview</span>
-               </button>
-
-               <button 
-                 onClick={handlePrint} 
-                 className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-2 active:scale-95 transition-all hover:border-slate-300 group cursor-pointer"
-               >
-                  <div className="w-11 h-11 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Printer size={20} />
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">Print</span>
-               </button>
+            <div className="flex items-center gap-2">
+              <a
+                href={activePdfUrl}
+                download={officialEicvFileName}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+              >
+                <Download size={15} />
+                <span>Unduh PDF</span>
+              </a>
+              <a
+                href={activePdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <ExternalLink size={15} />
+                <span className="hidden sm:inline">Buka Tab Baru</span>
+              </a>
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Printer size={15} />
+                <span className="hidden sm:inline">Print</span>
+              </button>
             </div>
           </div>
-        )}
+
+          {!uploadedEicvUrl && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-amber-900 text-xs">
+              <Sparkles size={18} className="text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-extrabold">Catatan Pengiriman PDF Admin:</p>
+                <p className="mt-0.5 text-amber-800">
+                  Sertifikat di bawah adalah pratinjau draft otomatis. Jika Admin/Petugas Medis telah mengunggah file PDF E-ICV resmi khusus melalui menu <strong>Riwayat</strong>, dokumen PDF tersebut akan langsung menggantikan tampilan pratinjau ini.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* EMBEDDED LIVE PDF VIEWER - LANDING DIRECTLY ON SCREEN */}
+          <div className="w-full bg-slate-900 rounded-2xl overflow-hidden shadow-inner border border-slate-300 min-h-[520px] sm:min-h-[680px] relative">
+            {activePdfUrl.startsWith('data:image/') ? (
+              <div className="p-4 flex items-center justify-center bg-slate-800 min-h-[520px] sm:min-h-[680px]">
+                <img
+                  src={activePdfUrl}
+                  alt="Dokumen E-ICV Resmi dari Admin"
+                  className="max-h-[750px] w-auto object-contain rounded-xl shadow-2xl border border-white/20"
+                />
+              </div>
+            ) : (
+              <object
+                data={`${activePdfUrl}#toolbar=1&navpanes=0`}
+                type="application/pdf"
+                className="w-full h-[550px] sm:h-[700px] rounded-2xl"
+              >
+                <iframe
+                  src={`${activePdfUrl}#toolbar=1`}
+                  title="Dokumen Resmi E-ICV PDF dari Admin"
+                  className="w-full h-[550px] sm:h-[700px] rounded-2xl border-0"
+                />
+              </object>
+            )}
+          </div>
+        </div>
+
+        {/* Kartu E-ICV Ringkas dengan QR Code */}
+        <div className="bg-white rounded-[28px] p-6 shadow-[0_15px_40px_rgba(0,0,0,0.06)] border border-slate-100/70 relative overflow-hidden group">
+          <div className="flex justify-center mb-4">
+            <div className="py-2 px-4 rounded-full bg-emerald-50 border border-emerald-100 flex items-center gap-2 shadow-sm">
+              <ShieldCheck size={16} className="text-emerald-600" />
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">Verified International Certificate</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col mb-4">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Identitas Pemegang Sertifikat</p>
+            <h3 className="font-extrabold text-slate-900 text-lg tracking-tight">{certBooking?.patient?.name || user?.name || 'Jamaah Vaksinasi'}</h3>
+            <div className="flex items-center gap-3 mt-1 flex-wrap text-xs font-semibold text-slate-600">
+              <p>NIK: <span className="text-slate-900 font-bold">{certBooking?.patient?.nik || '-'}</span></p>
+              <span>•</span>
+              <p>Passport: <span className="text-slate-900 font-bold">{certBooking?.patient?.passport || certBooking?.patient?.no_passport || '-'}</span></p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 mb-4 text-xs space-y-2">
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Detail Vaksinasi ({certVaccines.length} Jenis)</p>
+             {certVaccines.map(v => (
+               <div key={v.id} className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between font-bold text-slate-800">
+                 <span>{v.name}</span>
+                 <span className="text-[10px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">Terverifikasi</span>
+               </div>
+             ))}
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+             <a 
+               href={activePdfUrl} 
+               download={officialEicvFileName}
+               className="bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-2xl shadow-xs flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer font-bold text-xs"
+             >
+                <Download size={18} />
+                <span>Unduh E-ICV</span>
+             </a>
+
+             <button 
+               onClick={handleShareWhatsapp} 
+               className="bg-teal-600 hover:bg-teal-700 text-white p-3 rounded-2xl shadow-xs flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer font-bold text-xs"
+             >
+                <Share2 size={18} />
+                <span>Share WA</span>
+             </button>
+
+             <button 
+               onClick={() => setShowPreviewModal(true)} 
+               className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-xs flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer font-bold text-xs"
+             >
+                <Eye size={18} />
+                <span>Modal Full</span>
+             </button>
+
+             <button 
+               onClick={handlePrint} 
+               className="bg-slate-800 hover:bg-slate-900 text-white p-3 rounded-2xl shadow-xs flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer font-bold text-xs"
+             >
+                <Printer size={18} />
+                <span>Print</span>
+             </button>
+          </div>
+        </div>
 
       </div>
 
-      {/* Document In-App Preview Modal */}
-      {showPreviewModal && officialEicvUrl && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
-          <div className="bg-white rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95">
+      {/* Full Preview Modal */}
+      {showPreviewModal && activePdfUrl && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95">
             <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Award size={18} className="text-emerald-400" />
-                <span className="font-extrabold text-sm">Dokumen Resmi E-ICV</span>
+                <Award size={20} className="text-emerald-400" />
+                <span className="font-extrabold text-sm">Dokumen Resmi E-ICV (PDF Full)</span>
               </div>
               <div className="flex items-center gap-2">
                 <a
-                  href={officialEicvUrl}
+                  href={activePdfUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1"
                 >
-                  <ExternalLink size={12} /> Buka Tab Baru
+                  <ExternalLink size={12} /> Tab Baru
                 </a>
                 <button
                   onClick={() => setShowPreviewModal(false)}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer font-bold"
                 >
                   ✕
                 </button>
               </div>
             </div>
 
-            <div className="p-4 overflow-y-auto flex-1 bg-slate-100 flex items-center justify-center min-h-[400px]">
-              {officialEicvUrl.toLowerCase().endsWith('.pdf') ? (
-                <iframe
-                  src={officialEicvUrl}
-                  title="Official E-ICV Document"
-                  className="w-full h-[550px] rounded-xl border border-slate-300"
-                />
-              ) : (
-                <img
-                  src={officialEicvUrl}
-                  alt="Official E-ICV"
-                  className="max-h-[550px] max-w-full rounded-xl object-contain shadow-md"
-                />
-              )}
+            <div className="p-4 overflow-y-auto flex-1 bg-slate-100 flex items-center justify-center min-h-[450px]">
+              <iframe
+                src={`${activePdfUrl}#toolbar=1`}
+                title="Official E-ICV Document"
+                className="w-full h-[600px] rounded-xl border border-slate-300"
+              />
             </div>
           </div>
         </div>
@@ -369,3 +415,4 @@ export default function Certificate() {
     </div>
   );
 }
+

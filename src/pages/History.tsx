@@ -5,9 +5,10 @@ import {
   FileText, CheckCircle2, Clock, ChevronLeft, Trash2, 
   Search, Filter, Calendar, Users, Award, 
   ExternalLink, Printer, RefreshCw, X, Eye, 
-  MapPin, Phone, Hash, ShieldCheck, AlertCircle, LayoutGrid, Table as TableIcon
+  Phone, Hash, ShieldCheck, AlertCircle, Upload, Check, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { jsPDF } from 'jspdf';
 
 const MONTH_OPTIONS = [
   { value: 'all', label: 'Semua Bulan' },
@@ -36,16 +37,30 @@ const YEAR_OPTIONS = [
 
 export default function History() {
   const navigate = useNavigate();
-  const { bookings, vaccines, deleteBooking, role, refreshAllCloudData, isSupabaseOnline } = useAppStore();
+  const { 
+    bookings, 
+    vaccines, 
+    deleteBooking, 
+    role, 
+    refreshAllCloudData, 
+    isSupabaseOnline,
+    updateBookingStatus,
+    uploadOfficialEicv
+  } = useAppStore();
 
   // Filters State
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
   const [selectedBookingDetail, setSelectedBookingDetail] = useState<any | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // E-ICV Send Modal State
+  const [eicvModalBooking, setEicvModalBooking] = useState<any | null>(null);
+  const [eicvFile, setEicvFile] = useState<File | null>(null);
+  const [isSendingEicv, setIsSendingEicv] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -66,19 +81,146 @@ export default function History() {
     }
   };
 
-  // Helper to extract Date object from diverse date representations
+  const handleStatusChange = async (bookingId: string, newStatus: 'menunggu' | 'terverifikasi' | 'selesai') => {
+    try {
+      await updateBookingStatus(bookingId, newStatus);
+      setToastMessage(`Status peserta berhasil diubah menjadi ${newStatus.toUpperCase()}`);
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch (err) {
+      console.error('Gagal memperbarui status:', err);
+    }
+  };
+
+  // Helper to generate quick E-ICV PDF if no file uploaded
+  const generateEicvPdfDataUrl = (booking: any): string => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [215, 330] // F4 size
+    });
+
+    const patient = booking.patient || {};
+    const nama = patient.name || patient.fullName || 'Jamaah Vaksinasi';
+    const passport = patient.passport || patient.no_passport || '-';
+    const nik = patient.nik || '-';
+    const tglLahir = patient.dob || patient.tanggalLahir || '-';
+    const currentDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Kop Surat
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('PEMERINTAH KOTA SUKABUMI', 107.5, 18, { align: 'center' });
+    doc.setFontSize(13);
+    doc.text('DINAS KESEHATAN', 107.5, 24, { align: 'center' });
+    doc.setFontSize(16);
+    doc.text('UOBK RSUD AL-MULK', 107.5, 31, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Jl. Pelabuhan II KM 6, Lembursitu Kota Sukabumi Tlp.(0266) 6243088', 107.5, 37, { align: 'center' });
+    doc.text('Kode Pos 43169 email: rsudalmulk@gmail.com', 107.5, 42, { align: 'center' });
+
+    // Lines
+    doc.setLineWidth(0.8);
+    doc.line(15, 46, 200, 46);
+    doc.setLineWidth(0.2);
+    doc.line(15, 47.5, 200, 47.5);
+
+    // Title
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('ELECTRONIC INTERNATIONAL CERTIFICATE OF VACCINATION (E-ICV)', 107.5, 58, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text('SURAT KETERANGAN VAKSINASI / IMUNISASI INTERNASIONAL RESMI', 107.5, 64, { align: 'center' });
+
+    // Box
+    doc.setLineWidth(0.4);
+    doc.rect(18, 72, 179, 65);
+
+    // Patient Details
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('IDENTITAS PEMEGANG SERTIFIKAT:', 22, 80);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`1. Nama Lengkap       : ${nama}`, 22, 88);
+    doc.text(`2. Nomor Paspor         : ${passport}`, 22, 95);
+    doc.text(`3. NIK                         : ${nik}`, 22, 102);
+    doc.text(`4. Tanggal Lahir          : ${tglLahir}`, 22, 109);
+    doc.text(`5. Jenis Vaksin           : Meningitis / Vaksinasi Internasional`, 22, 116);
+    doc.text(`6. Nomor Registrasi   : ${booking.id}`, 22, 123);
+    doc.text(`7. Tanggal Penerbitan : ${currentDate}`, 22, 130);
+
+    // Official Seal / Note
+    doc.setFont('Helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.text('Dokumen ini diterbitkan secara sah oleh UOBK RSUD Al-Mulk Kota Sukabumi', 107.5, 146, { align: 'center' });
+    doc.text('dan terdaftar dalam database Kementerian Kesehatan RI.', 107.5, 151, { align: 'center' });
+
+    // Signatures
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Sukabumi, ${currentDate}`, 150, 170);
+    doc.text('Tim Medis & Vaksinator RSUD Al-Mulk', 150, 176);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.text('( Dr. Hj. Munifah, M.Kes )', 150, 205);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('NIP. 19740512 200212 2 003', 150, 210);
+
+    return doc.output('datauristring');
+  };
+
+  const handleSendEicvSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!eicvModalBooking) return;
+
+    setIsSendingEicv(true);
+    try {
+      let finalPdfUrl = '';
+      let finalFileName = `E-ICV_${eicvModalBooking.patient?.name || 'Peserta'}.pdf`;
+
+      if (eicvFile) {
+        finalFileName = eicvFile.name;
+        // Read file as Data URL
+        finalPdfUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(eicvFile);
+        });
+      } else {
+        // Auto-generate official PDF
+        finalPdfUrl = generateEicvPdfDataUrl(eicvModalBooking);
+      }
+
+      await uploadOfficialEicv(eicvModalBooking.id, finalPdfUrl, finalFileName);
+
+      setToastMessage(`Sertifikat E-ICV (${finalFileName}) berhasil dikirim ke akun peserta ${eicvModalBooking.patient?.name || ''}!`);
+      setTimeout(() => setToastMessage(null), 4000);
+
+      setEicvModalBooking(null);
+      setEicvFile(null);
+    } catch (err) {
+      console.error('Gagal mengirim E-ICV:', err);
+      alert('Gagal mengirim file E-ICV. Silakan coba lagi.');
+    } finally {
+      setIsSendingEicv(false);
+    }
+  };
+
+  // Helper to extract Date object
   const parseBookingDate = (dateStr?: string): Date | null => {
     if (!dateStr) return null;
     const directDate = new Date(dateStr);
     if (!isNaN(directDate.getTime())) return directDate;
 
-    // Regex match ISO format YYYY-MM-DD
     const isoMatch = dateStr.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
     if (isoMatch) {
       return new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
     }
 
-    // Regex match format DD MonthName YYYY
     const textMatch = dateStr.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
     if (textMatch) {
       const monthPrefixes = ['jan', 'feb', 'mar', 'apr', 'mei', 'may', 'jun', 'jul', 'agu', 'aug', 'sep', 'okt', 'oct', 'nov', 'des', 'dec'];
@@ -115,29 +257,24 @@ export default function History() {
   // Filter and Search Logic
   const filteredBookings = useMemo(() => {
     return bookings.slice().reverse().filter((booking) => {
-      // Date Object
       const bDate = parseBookingDate(booking.date);
 
-      // Month filter
       if (selectedMonth !== 'all') {
         if (!bDate) return false;
         const monthNum = (bDate.getMonth() + 1).toString();
         if (monthNum !== selectedMonth) return false;
       }
 
-      // Year filter
       if (selectedYear !== 'all') {
         if (!bDate) return false;
         const yearNum = bDate.getFullYear().toString();
         if (yearNum !== selectedYear) return false;
       }
 
-      // Status filter
       if (selectedStatus !== 'all') {
         if (booking.status !== selectedStatus) return false;
       }
 
-      // Search Query filter (matches patient name, NIK, passport, phone, vaccine name, ID)
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase();
         const patient = booking.patient || {};
@@ -175,6 +312,21 @@ export default function History() {
 
   return (
     <div className="bg-slate-50 min-h-screen relative w-full h-full font-sans pb-24">
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-emerald-900 text-white px-5 py-3 rounded-2xl shadow-xl border border-emerald-700 flex items-center gap-3 text-xs sm:text-sm font-bold"
+          >
+            <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Background Subtle Gradient Accents */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100/60 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="absolute top-40 left-0 w-80 h-80 bg-cyan-100/50 rounded-full blur-[90px] pointer-events-none"></div>
@@ -198,12 +350,12 @@ export default function History() {
                 )}
               </h1>
               <p className="text-xs text-slate-500 font-medium hidden sm:block">
-                Daftar peserta vaksinasi terdaftar, status verifikasi, dan penerbitan sertifikat E-ICV
+                Daftar peserta vaksinasi terdaftar, status verifikasi, dan pengiriman dokumen E-ICV
               </p>
             </div>
           </div>
 
-          {/* Action Buttons: Refresh & View Toggle */}
+          {/* Action Buttons: Refresh */}
           <div className="flex items-center gap-2">
             <button
               onClick={handleRefresh}
@@ -214,27 +366,6 @@ export default function History() {
               <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-blue-600' : ''} />
               <span className="hidden md:inline">Sinkron Data</span>
             </button>
-
-            <div className="hidden sm:flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
-              <button
-                onClick={() => setViewMode('card')}
-                className={`p-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  viewMode === 'card' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <LayoutGrid size={14} />
-                <span>Kartu</span>
-              </button>
-              <button
-                onClick={() => setViewMode('table')}
-                className={`p-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  viewMode === 'table' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <TableIcon size={14} />
-                <span>Tabel</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -431,11 +562,11 @@ export default function History() {
         {/* Filtered Results Header */}
         <div className="flex items-center justify-between px-1">
           <p className="text-xs font-black uppercase tracking-wider text-slate-500">
-            Menampilkan {filteredBookings.length} Peserta Terdaftar
+            Tabel Data Peserta Terdaftar ({filteredBookings.length} Peserta)
           </p>
         </div>
 
-        {/* Empty State */}
+        {/* Empty State or Table View */}
         {filteredBookings.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4">
             <div className="w-16 h-16 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto text-slate-400">
@@ -463,148 +594,8 @@ export default function History() {
               </button>
             )}
           </div>
-        ) : viewMode === 'card' ? (
-          
-          /* CARD VIEW */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredBookings.map((booking, idx) => {
-              const vaccine = vaccines.find(v => v.id === booking.vaccineId);
-              const patient = booking.patient || {};
-              const patientName = patient.name || patient.fullName || patient.nama || 'Peserta Vaksinasi';
-              const patientNik = patient.nik || '-';
-              const patientPassport = patient.passport || patient.passportNumber || patient.no_passport || '-';
-              const patientPhone = patient.handphone || patient.phone || patient.no_hp || '-';
-              const purpose = patient.purpose || patient.keperluan || 'Umroh / Internasional';
-
-              return (
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  key={booking.id}
-                  onClick={() => setSelectedBookingDetail(booking)}
-                  className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden"
-                >
-                  {/* Top Status & ID */}
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div>
-                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                          ID: {booking.id}
-                        </span>
-                        <h3 className="font-black text-slate-900 text-base mt-1.5 line-clamp-1 group-hover:text-blue-600 transition-colors">
-                          {patientName}
-                        </h3>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          booking.status === 'selesai' 
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                            : booking.status === 'terverifikasi'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}>
-                          {booking.status}
-                        </span>
-
-                        {role === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleDelete(booking.id, e)}
-                            className="p-1 text-slate-400 hover:text-rose-600 transition-colors rounded-lg cursor-pointer"
-                            title="Hapus Data Peserta"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Vaccine Info Banner */}
-                    <div className="p-3 bg-gradient-to-r from-slate-50 to-blue-50/40 rounded-2xl border border-slate-100 mb-3 space-y-1.5">
-                      <div className="flex flex-wrap gap-1">
-                        {getBookingVaccines(booking).map(v => (
-                          <span key={v.id} className="text-[11px] font-bold bg-white text-slate-800 px-2 py-0.5 rounded-lg border border-slate-200/80 shadow-2xs">
-                            {v.name}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium pt-0.5">
-                        <span>Tujuan: {purpose}</span>
-                        <span className="font-black text-blue-700">Rp {getBookingTotalPrice(booking).toLocaleString('id-ID')}</span>
-                      </div>
-                    </div>
-
-                    {/* Patient Summary Details Grid */}
-                    <div className="space-y-1.5 text-xs text-slate-600 mb-4 bg-white">
-                      <div className="flex items-center gap-2">
-                        <Hash size={13} className="text-slate-400 shrink-0" />
-                        <span className="text-slate-400 font-medium">NIK:</span>
-                        <span className="font-bold text-slate-800 truncate">{patientNik}</span>
-                      </div>
-                      
-                      {patientPassport !== '-' && (
-                        <div className="flex items-center gap-2">
-                          <FileText size={13} className="text-slate-400 shrink-0" />
-                          <span className="text-slate-400 font-medium">Passport:</span>
-                          <span className="font-bold text-slate-800 truncate">{patientPassport}</span>
-                        </div>
-                      )}
-
-                      {patientPhone !== '-' && (
-                        <div className="flex items-center gap-2">
-                          <Phone size={13} className="text-slate-400 shrink-0" />
-                          <span className="text-slate-400 font-medium">No. HP:</span>
-                          <span className="font-bold text-slate-800 truncate">{patientPhone}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Bottom Date & Action Buttons */}
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                      <Calendar size={14} className="text-blue-600" />
-                      <span>{booking.date || 'Sesuai Jadwal'}</span>
-                      {booking.time && <span className="font-bold text-slate-700">• {booking.time} WIB</span>}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {(booking.status === 'selesai' || booking.status === 'terverifikasi') ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate('/certificate');
-                          }}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition-all cursor-pointer"
-                        >
-                          <Award size={13} />
-                          <span>E-ICV</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedBookingDetail(booking);
-                          }}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
-                        >
-                          <Eye size={13} />
-                          <span>Detail</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
         ) : (
-          
-          /* TABLE VIEW (Optimal for Desktop & Landscape) */
+          /* TABLE VIEW DIRECTLY */
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -615,23 +606,22 @@ export default function History() {
                     <th className="py-4 px-4">Nama Peserta</th>
                     <th className="py-4 px-4">NIK & Passport</th>
                     <th className="py-4 px-4">Jenis Vaksin</th>
-                    <th className="py-4 px-4">Status</th>
-                    <th className="py-4 px-4 text-center">Aksi</th>
+                    <th className="py-4 px-4">Status Pendaftaran</th>
+                    <th className="py-4 px-4 text-center">Aksi / Kirim E-ICV</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
                   {filteredBookings.map((booking, index) => {
-                    const vaccine = vaccines.find(v => v.id === booking.vaccineId);
                     const patient = booking.patient || {};
                     const patientName = patient.name || patient.fullName || patient.nama || 'Peserta Vaksin';
                     const patientNik = patient.nik || '-';
                     const patientPassport = patient.passport || patient.passportNumber || patient.no_passport || '-';
+                    const hasEicv = Boolean(patient.e_icv_url);
 
                     return (
                       <tr 
                         key={booking.id} 
-                        onClick={() => setSelectedBookingDetail(booking)}
-                        className="hover:bg-blue-50/40 transition-colors cursor-pointer"
+                        className="hover:bg-blue-50/40 transition-colors"
                       >
                         <td className="py-3.5 px-4 font-bold text-slate-400">{index + 1}</td>
                         <td className="py-3.5 px-4">
@@ -658,39 +648,83 @@ export default function History() {
                             {patient.purpose || 'Umroh / Haji'} • Rp{getBookingTotalPrice(booking).toLocaleString('id-ID')}
                           </div>
                         </td>
+
+                        {/* Status Column with Interactive Admin Dropdown */}
                         <td className="py-3.5 px-4">
-                          <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            booking.status === 'selesai' 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                              : booking.status === 'terverifikasi'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
-                          }`}>
-                            {booking.status}
-                          </span>
+                          {role === 'admin' ? (
+                            <select
+                              value={booking.status}
+                              onChange={(e) => handleStatusChange(booking.id, e.target.value as any)}
+                              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider outline-none cursor-pointer border transition-all ${
+                                booking.status === 'selesai' 
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 focus:ring-2 focus:ring-emerald-400' 
+                                  : booking.status === 'terverifikasi'
+                                  ? 'bg-blue-50 text-blue-800 border-blue-300 focus:ring-2 focus:ring-blue-400'
+                                  : 'bg-amber-50 text-amber-800 border-amber-300 focus:ring-2 focus:ring-amber-400'
+                              }`}
+                              title="Ubah Status Peserta"
+                            >
+                              <option value="menunggu">⏱ Menunggu</option>
+                              <option value="terverifikasi">🛡 Terverifikasi</option>
+                              <option value="selesai">✅ Selesai</option>
+                            </select>
+                          ) : (
+                            <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              booking.status === 'selesai' 
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                : booking.status === 'terverifikasi'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}>
+                              {booking.status}
+                            </span>
+                          )}
                         </td>
+
+                        {/* Action Column */}
                         <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1.5">
+                            {/* Detail Button */}
                             <button
                               onClick={() => setSelectedBookingDetail(booking)}
-                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all"
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all cursor-pointer"
                               title="Lihat Detail Peserta"
                             >
                               <Eye size={14} />
                             </button>
-                            {(booking.status === 'selesai' || booking.status === 'terverifikasi') && (
+
+                            {/* Kirim / Upload E-ICV Button for Admin */}
+                            {role === 'admin' && (
+                              <button
+                                onClick={() => setEicvModalBooking(booking)}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition-all cursor-pointer ${
+                                  hasEicv 
+                                    ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300' 
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                }`}
+                                title="Kirim dokumen E-ICV PDF ke akun peserta"
+                              >
+                                <Upload size={13} />
+                                <span>{hasEicv ? 'E-ICV Terkirim' : 'Kirim E-ICV'}</span>
+                              </button>
+                            )}
+
+                            {/* Direct E-ICV View for User */}
+                            {role !== 'admin' && (booking.status === 'selesai' || booking.status === 'terverifikasi') && (
                               <button
                                 onClick={() => navigate('/certificate')}
-                                className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all"
+                                className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all cursor-pointer"
                                 title="Buka E-Sertifikat ICV"
                               >
                                 <Award size={14} />
                               </button>
                             )}
+
+                            {/* Delete Button */}
                             {role === 'admin' && (
                               <button
                                 onClick={(e) => handleDelete(booking.id, e)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-all"
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
                                 title="Hapus"
                               >
                                 <Trash2 size={14} />
@@ -708,6 +742,112 @@ export default function History() {
         )}
 
       </div>
+
+      {/* ADMIN KIRIM E-ICV PDF MODAL */}
+      <AnimatePresence>
+        {eicvModalBooking && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 my-auto"
+            >
+              <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg uppercase tracking-wider">
+                    Penerbitan Dokumen E-ICV
+                  </span>
+                  <h2 className="text-lg font-black text-slate-900 mt-1">
+                    Kirim E-ICV PDF ke Peserta
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {eicvModalBooking.patient?.name || 'Peserta'} • NIK: {eicvModalBooking.patient?.nik || '-'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEicvModalBooking(null);
+                    setEicvFile(null);
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 cursor-pointer transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSendEicvSubmit} className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                    Upload file sertifikat resmi E-ICV (format PDF) untuk dikirim langsung ke akun peserta. Dokumen ini akan langsung tampil di menu E-ICV milik peserta dan siap diunduh.
+                  </p>
+
+                  {/* File Upload Input */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Pilih File PDF E-ICV
+                    </label>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => setEicvFile(e.target.files?.[0] || null)}
+                      className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+                    />
+                  </div>
+
+                  {eicvFile && (
+                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 font-bold flex items-center justify-between">
+                      <span className="truncate">📎 {eicvFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setEicvFile(null)}
+                        className="text-emerald-700 hover:text-emerald-900"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  {!eicvFile && (
+                    <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-500 flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-emerald-600 shrink-0" />
+                      <span>Jika tidak mengunggah file PDF khusus, sistem akan secara otomatis membuatkan <strong>E-ICV PDF Resmi</strong> berstandar RSUD Al-Mulk.</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSendingEicv}
+                    className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer"
+                  >
+                    {isSendingEicv ? (
+                      <span>Mengirim Dokumen PDF...</span>
+                    ) : (
+                      <>
+                        <Upload size={16} />
+                        <span>Kirim E-ICV PDF Ke Akun Peserta</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEicvModalBooking(null);
+                      setEicvFile(null);
+                    }}
+                    className="px-5 h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* DETAIL MODAL PESERTA TERDAFTAR */}
       <AnimatePresence>
@@ -850,19 +990,20 @@ export default function History() {
 
               {/* Modal Actions */}
               <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-3 border-t border-slate-100">
-                {(selectedBookingDetail.status === 'selesai' || selectedBookingDetail.status === 'terverifikasi') ? (
+                {role === 'admin' && (
                   <button
                     type="button"
                     onClick={() => {
+                      const b = selectedBookingDetail;
                       setSelectedBookingDetail(null);
-                      navigate('/certificate');
+                      setEicvModalBooking(b);
                     }}
                     className="w-full sm:flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer"
                   >
-                    <Award size={16} />
-                    <span>Buka / Cetak E-Sertifikat ICV</span>
+                    <Upload size={16} />
+                    <span>Kirim E-ICV (PDF) ke Akun Peserta</span>
                   </button>
-                ) : null}
+                )}
 
                 <button
                   type="button"

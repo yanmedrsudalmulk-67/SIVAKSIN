@@ -3,7 +3,7 @@ import { useAppStore } from '../store/AppContext';
 
 export function SukabumiCoatOfArms({ className = "w-20 h-24" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 100 120" className={className} xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 100 120" preserveAspectRatio="xMidYMid meet" className={className} xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#15803d" />
@@ -91,7 +91,7 @@ export function SukabumiCoatOfArms({ className = "w-20 h-24" }: { className?: st
 
 export function RsudAlMulkLogo({ className = "w-20 h-24" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 100 120" className={className} xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 100 120" preserveAspectRatio="xMidYMid meet" className={className} xmlns="http://www.w3.org/2000/svg">
       {/* Green Cross base */}
       <g>
         <rect x="36" y="10" width="28" height="74" rx="8" fill="#84cc16" />
@@ -150,56 +150,56 @@ export default function OfficialDocHeader({ fontFamily, className = '' }: Offici
       className={`w-full text-black pb-2 ${className}`}
       style={fontFamily ? { fontFamily } : undefined}
     >
-      <div className="flex items-center justify-between gap-3 px-2">
+      <div className="flex items-center justify-between gap-2 px-2">
         {/* Left: Logo Pemerintah Kota Sukabumi */}
-        <div className="w-24 shrink-0 flex items-center justify-center">
+        <div className="w-20 sm:w-24 shrink-0 flex items-center justify-center">
           {docLogoLeft ? (
             <img
               src={docLogoLeft}
               alt="Logo Pemerintah Kota Sukabumi"
-              className="w-[78px] h-[92px] object-contain"
+              className="w-16 h-20 sm:w-20 sm:h-24 object-contain"
             />
           ) : (
-            <SukabumiCoatOfArms className="w-[78px] h-[92px]" />
+            <SukabumiCoatOfArms className="w-16 h-20 sm:w-20 sm:h-24" />
           )}
         </div>
 
         {/* Center: Kop Surat Instansi Resmi */}
         <div className="flex-1 text-center leading-tight">
-          <h2 className="text-[14px] sm:text-[17px] md:text-[19px] font-black tracking-wider uppercase text-black">
+          <h2 className="text-[14px] sm:text-[17px] md:text-[19px] font-black tracking-wider uppercase text-black" style={{ color: '#000000' }}>
             PEMERINTAH KOTA SUKABUMI
           </h2>
-          <h3 className="text-[13px] sm:text-[16px] md:text-[18px] font-black tracking-wider uppercase text-black mt-0.5">
+          <h3 className="text-[13px] sm:text-[16px] md:text-[18px] font-black tracking-wider uppercase text-black mt-0.5" style={{ color: '#000000' }}>
             DINAS KESEHATAN
           </h3>
-          <h1 className="text-[15px] sm:text-[18px] md:text-[21px] font-black tracking-wide uppercase text-black mt-0.5">
+          <h1 className="text-[15px] sm:text-[18px] md:text-[21px] font-black tracking-wide uppercase text-black mt-0.5" style={{ color: '#000000' }}>
             UOBK RSUD AL-MULK
           </h1>
-          <p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-black/90 mt-1 leading-snug">
+          <p className="text-[10px] sm:text-[11px] md:text-[12px] font-semibold text-black mt-1 leading-snug" style={{ color: '#000000' }}>
             Jl. Pelabuhan II KM 6, Lembursitu Kota Sukabumi Tlp.(0266) 6243088
           </p>
-          <p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-black/90 leading-snug">
-            Kode Pos 43169 email: <span className="underline text-blue-900">rsudalmulk@gmail.com</span>
+          <p className="text-[10px] sm:text-[11px] md:text-[12px] font-semibold text-black leading-snug" style={{ color: '#000000' }}>
+            Kode Pos 43169 email: <span className="underline font-bold" style={{ color: '#1e3a8a' }}>rsudalmulk@gmail.com</span>
           </p>
         </div>
 
         {/* Right: Logo RSUD Al-Mulk */}
-        <div className="w-24 shrink-0 flex items-center justify-center">
+        <div className="w-20 sm:w-24 shrink-0 flex items-center justify-center">
           {docLogoRight ? (
             <img
               src={docLogoRight}
               alt="Logo RSUD Al-Mulk"
-              className="w-[78px] h-[92px] object-contain"
+              className="w-16 h-20 sm:w-20 sm:h-24 object-contain"
             />
           ) : (
-            <RsudAlMulkLogo className="w-[78px] h-[92px]" />
+            <RsudAlMulkLogo className="w-16 h-20 sm:w-20 sm:h-24" />
           )}
         </div>
       </div>
 
       {/* Official Black Separator Line */}
-      <div className="w-full border-b-[3.5px] border-black mt-2"></div>
-      <div className="w-full border-b-[1px] border-black mt-[1.5px]"></div>
+      <div className="w-full border-b-[3.5px] border-black mt-2" style={{ borderColor: '#000000' }}></div>
+      <div className="w-full border-b-[1px] border-black mt-[1.5px]" style={{ borderColor: '#000000' }}></div>
     </div>
   );
 }

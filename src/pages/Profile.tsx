@@ -848,7 +848,7 @@ export default function Profile() {
             </div>
           </div>
           <button
-            onClick={() => navigate('/consent?doc=consent')}
+            onClick={() => navigate('/informed-consent?doc=consent')}
             className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <span>Buka Informed Consent</span>
@@ -1119,7 +1119,7 @@ export default function Profile() {
 
           <div className="flex justify-end pt-2">
             <button
-              onClick={() => navigate('/consent?doc=consent')}
+              onClick={() => navigate('/informed-consent?doc=consent')}
               className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md"
             >
               <span>Buka Formulir Informed Consent Lengkap</span>

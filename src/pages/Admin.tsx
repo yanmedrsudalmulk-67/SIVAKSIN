@@ -332,7 +332,7 @@ export default function Admin() {
               Atur Logo Kop Surat
             </button>
             <button
-              onClick={() => navigate('/consent')}
+              onClick={() => navigate('/informed-consent')}
               className="flex-1 sm:flex-initial px-3.5 py-2 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95"
             >
               Informed Consent

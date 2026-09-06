@@ -11,6 +11,10 @@ import PermohonanVaksinDoc from '../components/documents/PermohonanVaksinDoc';
 import InformedConsentDoc from '../components/documents/InformedConsentDoc';
 import SkriningVaksinDoc from '../components/documents/SkriningVaksinDoc';
 
+import html2pdf from 'html2pdf.js';
+import { renderHtmlToCanvas } from '../utils/html2canvasHelper';
+import { jsPDF } from 'jspdf';
+
 type DocType = 'permohonan' | 'consent' | 'skrining';
 
 export default function InformedConsent() {
@@ -25,6 +29,7 @@ export default function InformedConsent() {
     initialBookingId || (bookings.length > 0 ? bookings[0].id : '')
   );
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Selected Booking
   const selectedBooking = useMemo(() => {
@@ -80,8 +85,59 @@ export default function InformedConsent() {
     };
   }, [selectedBooking]);
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    const element = document.getElementById('print-document-container');
+    if (!element) return;
+    
+    setIsGeneratingPdf(true);
+    
+    try {
+      // Add print mode class temporarily
+      const children = Array.from(element.children);
+      children.forEach((child) => child.classList.add('print-container'));
+      
+      const docName = activeDoc === 'permohonan' ? 'Permohonan' 
+                    : activeDoc === 'consent' ? 'Informed_Consent' 
+                    : 'Skrining';
+      const patientName = selectedBooking?.patient?.name?.replace(/ /g, '_') || 'Pasien';
+
+      // Use our robust helper which has color sanitization built-in
+      const canvas = await renderHtmlToCanvas(element, {
+        scale: 3, // High quality
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 850, // Narrow window to match our document max-width
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: [215, 330], // F4 / Folio Size
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      // Calculate dimensions to fit exactly into F4
+      // We want to fill the width of the PDF
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Center the image if it's shorter than the page, or just place it at top
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`Dokumen_${docName}_${patientName}.pdf`);
+
+      // Clean up the temporary class
+      children.forEach((child) => child.classList.remove('print-container'));
+    } catch (err) {
+      console.error('Gagal membuat PDF:', err);
+      // Fallback to basic print if helper fails
+      window.print();
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleUpdateScreening = async (screeningData: any) => {
@@ -106,43 +162,31 @@ export default function InformedConsent() {
       {/* Non-print Controls Bar & Header */}
       <div className="print:hidden">
         {/* Top App Bar */}
-        <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white pt-safe pb-6 px-4 shadow-md sticky top-0 z-30">
-          <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white py-4 sm:py-5 px-4 sm:px-6 shadow-md sticky top-0 z-30 flex items-center min-h-[72px]">
+          <div className="max-w-5xl mx-auto w-full flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate(-1)}
-                className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
+                className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 active:scale-95 transition-all cursor-pointer shrink-0"
               >
                 <ChevronLeft size={22} />
               </button>
-              <div>
-                <h1 className="text-lg font-black tracking-tight flex items-center gap-2">
+              <div className="flex flex-col justify-center">
+                <h1 className="text-base sm:text-lg font-black tracking-tight flex items-center gap-2 leading-tight">
                   <span>INFORMED CONSENT</span>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                    Dokumen Resmi
-                  </span>
                 </h1>
-                <p className="text-xs text-slate-300 font-medium">
-                  UOBK RSUD Al-Mulk Kota Sukabumi • Standar A4
+                <p className="text-[11px] sm:text-xs text-slate-300 font-medium leading-tight mt-0.5">
+                  UOBK RSUD Al-Mulk Kota Sukabumi
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => navigate('/profile?view=doc_logo_settings')}
-                className="px-3.5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 border border-white/20 transition-all cursor-pointer"
-                title="Atur Logo Pemkot Sukabumi & Logo RSUD Al-Mulk pada Kop Surat"
-              >
-                <Settings size={15} className="text-amber-300" />
-                <span className="hidden sm:inline">Pengaturan Logo Kop</span>
-              </button>
-
-              <button
                 onClick={handlePrint}
                 className="px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
               >
-                <Printer size={16} />
+                <Download size={16} />
                 <span className="hidden sm:inline">Cetak Dokumen</span>
                 <span className="sm:hidden">Cetak</span>
               </button>
@@ -161,7 +205,7 @@ export default function InformedConsent() {
                 </div>
                 <div>
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Pilih Data Pasien
+                    Pilih Data Pelaku Perjalanan
                   </p>
                   <p className="text-xs font-bold text-slate-700">
                     {bookings.length} Pendaftaran Tersedia
@@ -180,40 +224,6 @@ export default function InformedConsent() {
                   </option>
                 ))}
               </select>
-            </div>
-          )}
-
-          {/* Validation Notice Banner */}
-          {!validationResult.isComplete ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-amber-900 shadow-xs">
-              <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5" />
-              <div className="text-xs">
-                <p className="font-bold text-amber-900">
-                  Perhatian: Data Pasien Belum Lengkap ({validationResult.missingFields.length} field)
-                </p>
-                <p className="text-amber-700 mt-0.5">
-                  Field berikut belum terisi pada data pendaftaran:{' '}
-                  <span className="font-semibold">{validationResult.missingFields.join(', ')}</span>.
-                </p>
-                <button
-                  onClick={() => navigate('/register')}
-                  className="mt-2 text-xs font-bold text-amber-900 underline flex items-center gap-1 hover:text-amber-950 cursor-pointer"
-                >
-                  Lengkapi data pada menu Booking <ArrowRight size={13} />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-2.5 flex items-center justify-between text-emerald-900 shadow-xs">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={18} className="text-emerald-600" />
-                <span className="text-xs font-bold text-emerald-800">
-                  Data Pasien Terintegrasi & Siap Dicetak (100% Valid)
-                </span>
-              </div>
-              <span className="text-[11px] font-semibold text-emerald-600 hidden sm:inline">
-                Sumber: Supabase Booking ID #{selectedBooking?.id.substring(0, 8)}
-              </span>
             </div>
           )}
 
@@ -283,7 +293,7 @@ export default function InformedConsent() {
             </button>
           </div>
         ) : (
-          <div className="relative">
+          <div id="print-document-container" className="relative">
             {/* Active Document Render */}
             {activeDoc === 'permohonan' && (
               <PermohonanVaksinDoc
@@ -323,7 +333,7 @@ export default function InformedConsent() {
                   : 'Form Skrining Medis'}
               </p>
               <p className="text-[11px] text-emerald-400 font-medium">
-                Siap Dicetak (A4)
+                Siap Dicetak (F4/Folio)
               </p>
             </div>
 

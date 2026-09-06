@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { jsPDF } from 'jspdf';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   fetchVaccinesFromSupabase,
@@ -140,13 +141,91 @@ const defaultUsers = [
   }
 ];
 
+const createDefaultEicvPdf = (): string => {
+  try {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [215, 330] // F4 size
+    });
+
+    // Kop Surat
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('PEMERINTAH KOTA SUKABUMI', 107.5, 18, { align: 'center' });
+    doc.setFontSize(13);
+    doc.text('DINAS KESEHATAN', 107.5, 24, { align: 'center' });
+    doc.setFontSize(16);
+    doc.text('UOBK RSUD AL-MULK', 107.5, 31, { align: 'center' });
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Jl. Pelabuhan II KM 6, Lembursitu Kota Sukabumi Tlp.(0266) 6243088', 107.5, 37, { align: 'center' });
+    doc.text('Kode Pos 43169 email: rsudalmulk@gmail.com', 107.5, 42, { align: 'center' });
+
+    // Lines
+    doc.setLineWidth(0.8);
+    doc.line(15, 46, 200, 46);
+    doc.setLineWidth(0.2);
+    doc.line(15, 47.5, 200, 47.5);
+
+    // Title
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('ELECTRONIC INTERNATIONAL CERTIFICATE OF VACCINATION (E-ICV)', 107.5, 57, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text('SURAT KETERANGAN VAKSINASI / IMUNISASI INTERNASIONAL RESMI', 107.5, 63, { align: 'center' });
+
+    // Box
+    doc.setLineWidth(0.4);
+    doc.rect(18, 70, 179, 72);
+
+    // Patient Details
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('IDENTITAS PEMEGANG SERTIFIKAT:', 22, 78);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('1. Nama Lengkap       : Budi Santoso', 22, 86);
+    doc.text('2. Nomor Paspor         : A9821321', 22, 93);
+    doc.text('3. NIK                         : 3272010101900001', 22, 100);
+    doc.text('4. Tanggal Lahir          : 15 Januari 1990', 22, 107);
+    doc.text('5. Jenis Vaksin           : Meningitis / Vaksinasi Internasional', 22, 114);
+    doc.text('6. Nomor Registrasi   : BK-RSAM01', 22, 121);
+    doc.text('7. Tanggal Penerbitan : 10 Juni 2026', 22, 128);
+    doc.text('8. Faskes Penerbit     : UOBK RSUD Al-Mulk Kota Sukabumi', 22, 135);
+
+    // Official Seal / Note
+    doc.setFont('Helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.text('Dokumen ini diterbitkan secara sah oleh UOBK RSUD Al-Mulk Kota Sukabumi', 107.5, 150, { align: 'center' });
+    doc.text('dan terdaftar dalam database Kementerian Kesehatan RI.', 107.5, 155, { align: 'center' });
+
+    // Signatures
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Sukabumi, 10 Juni 2026', 150, 175);
+    doc.text('Tim Medis & Vaksinator RSUD Al-Mulk', 150, 181);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.text('( Dr. Hj. Munifah, M.Kes )', 150, 210);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('NIP. 19740512 200212 2 003', 150, 215);
+
+    return doc.output('datauristring');
+  } catch (e) {
+    return '';
+  }
+};
+
 const defaultBookings: Booking[] = [
   {
     id: 'BK-RSAM01',
     vaccineId: 'v1',
     date: '2026-06-10',
     time: '09:00 WIB',
-    status: 'terverifikasi',
+    status: 'selesai',
     patient: {
       name: 'Budi Santoso',
       nik: '3272010101900001',
@@ -155,7 +234,11 @@ const defaultBookings: Booking[] = [
       purpose: 'Umroh',
       selectedVaccine: 'v1',
       selectedDate: '2026-06-10',
-      selectedTime: '09:00 WIB'
+      selectedTime: '09:00 WIB',
+      e_icv_status: 'diterbitkan',
+      e_icv_file_name: 'Sertifikat_E-ICV_Resmi_Budi_Santoso.pdf',
+      e_icv_issued_at: '2026-06-10T10:00:00.000Z',
+      e_icv_url: createDefaultEicvPdf()
     }
   }
 ];

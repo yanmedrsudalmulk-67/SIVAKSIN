@@ -64,7 +64,7 @@ export default function PermohonanVaksinDoc({
       className={`bg-white text-black font-sans mx-auto p-4 sm:p-8 md:p-12 w-full max-w-[820px] shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-6 print:m-0 print:max-w-none ${
         isPrintMode ? 'print-container' : ''
       }`}
-      style={{ minHeight: '297mm', color: '#000000', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }}
+      style={{ minHeight: '330mm', color: '#000000', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }}
     >
       {/* Official Header matching original scan */}
       <OfficialDocHeader fontFamily="Arial, Helvetica, sans-serif" />
