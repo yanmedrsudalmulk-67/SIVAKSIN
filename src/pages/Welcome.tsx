@@ -51,7 +51,7 @@ export default function Welcome() {
              transition={{ delay: 0.3, duration: 0.8 }}
              className="text-center w-full space-y-4"
           >
-            <h1 className="text-5xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-100 drop-shadow-sm mb-6">
+            <h1 className="font-['League_Spartan',sans-serif] text-5xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-100 drop-shadow-md mb-6">
               SIVAKSIN
             </h1>
             

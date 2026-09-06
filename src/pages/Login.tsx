@@ -75,11 +75,11 @@ export default function Login() {
         </div>
       </div>
 
-      <div className="w-full max-w-md mx-auto relative z-10 px-5 pt-5 pb-8 flex flex-col items-center">
+      <div className="w-full max-w-md mx-auto relative z-10 px-5 pt-6 sm:pt-7 pb-8 flex flex-col items-center">
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-4"
+          className="text-center mb-5 sm:mb-6"
         >
           <motion.div 
             animate={{ y: [0, -8, 0] }}
@@ -92,7 +92,7 @@ export default function Login() {
                <Activity className="text-blue-600 w-10 h-10 stroke-[2px]" />
             )}
           </motion.div>
-          <h1 className="text-3xl font-black text-white tracking-widest drop-shadow-md">SIVAKSIN</h1>
+          <h1 className="font-['League_Spartan',sans-serif] text-3xl font-black text-white tracking-widest drop-shadow-md">SIVAKSIN</h1>
           <p className="text-cyan-100 text-[11px] font-bold tracking-widest uppercase mt-0.5 drop-shadow-sm opacity-90">UOBK RSUD AL-MULK KOTA SUKABUMI</p>
         </motion.div>
 
@@ -100,11 +100,11 @@ export default function Login() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="bg-white/60 backdrop-blur-2xl rounded-[32px] p-6 sm:p-7 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.08)] border border-white/60 relative w-full flex flex-col justify-start"
+          className="bg-white/60 backdrop-blur-2xl rounded-[32px] p-6 sm:p-7 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.08)] border border-white/60 relative w-full flex flex-col justify-start mt-1.5 sm:mt-2.5"
         >
           <div className="mb-4">
-            <h2 className="text-[19px] font-extrabold text-slate-800 mb-1 leading-tight tracking-tight">Selamat Datang Kembali</h2>
-            <p className="text-slate-500 text-[12.5px] font-medium leading-relaxed">Masuk untuk melanjutkan layanan SIVAKSIN</p>
+            <h2 className="font-['Poppins',sans-serif] text-[17.5px] font-extrabold text-slate-800 mb-1.5 leading-tight tracking-wide uppercase">SELAMAT DATANG KEMBALI</h2>
+            <p className="font-['Poppins',sans-serif] text-slate-500 text-[12.5px] font-medium leading-relaxed">Masuk untuk melanjutkan layanan SIVAKSIN</p>
           </div>
 
           {error && (
