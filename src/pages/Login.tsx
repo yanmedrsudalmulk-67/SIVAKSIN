@@ -48,7 +48,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative font-sans overflow-x-hidden">
       {/* Header Hero Premium */}
-      <div className="absolute top-0 inset-x-0 h-[30vh] min-h-[220px] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 overflow-hidden pointer-events-none z-0">
+      <div className="absolute top-0 inset-x-0 h-[360px] sm:h-[390px] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 overflow-hidden pointer-events-none z-0">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
         {/* Soft Glow */}
         <div className="absolute -top-32 -right-32 w-[500px] h-[500px] bg-cyan-400 rounded-full mix-blend-screen filter blur-[120px] opacity-40"></div>
@@ -68,19 +68,19 @@ export default function Login() {
           <FileText size={70} strokeWidth={1} />
         </motion.div>
 
-        {/* Wave curve bottom */}
+        {/* Wave curve bottom - aligned with Selamat Datang card header */}
         <div className="absolute bottom-0 inset-x-0 translate-y-[1px]">
-          <svg viewBox="0 0 1440 120" className="w-full h-auto fill-slate-50 relative z-10" preserveAspectRatio="none">
-            <path d="M0,60 C320,120 420,0 720,0 C1020,0 1120,120 1440,60 L1440,120 L0,120 Z"></path>
+          <svg viewBox="0 0 1440 140" className="w-full h-24 sm:h-32 fill-slate-50 relative z-10" preserveAspectRatio="none">
+            <path d="M0,50 C320,110 440,10 720,50 C1000,90 1140,20 1440,60 L1440,140 L0,140 Z"></path>
           </svg>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col w-full max-w-md mx-auto relative z-10 px-6 pt-8 pb-4">
+      <div className="flex-1 flex flex-col w-full max-w-md mx-auto relative z-10 px-6 pt-6 pb-4">
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-6"
+          className="text-center mb-5"
         >
           <motion.div 
             animate={{ y: [0, -8, 0] }}
@@ -101,7 +101,7 @@ export default function Login() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="bg-white/95 rounded-[32px] p-6 sm:p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white/80 flex-1 relative mb-6 backdrop-blur-md flex flex-col justify-center"
+          className="bg-white/95 rounded-[32px] p-6 sm:p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.12)] border border-white/80 flex-1 relative mb-6 backdrop-blur-md flex flex-col justify-center"
         >
           <div className="mb-6">
             <h2 className="text-[20px] font-extrabold text-slate-800 mb-2 leading-tight tracking-tight">Selamat Datang Kembali</h2>
@@ -119,15 +119,15 @@ export default function Login() {
             <div className="space-y-2">
               <label className="text-[13px] font-bold text-slate-700 pl-1">Username / Email</label>
               <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors z-10">
                   <User size={20} />
                 </div>
                 <input 
                   type="text" 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-slate-50/80 border border-slate-200 hover:border-slate-300 rounded-[20px] py-[18px] pl-12 pr-4 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/10 transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-medium text-[15px]"
-                  placeholder="Contoh: budi.santoso"
+                  className="w-full bg-slate-100/90 border border-slate-300/80 hover:border-slate-400 rounded-[20px] py-[18px] pl-12 pr-4 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/15 transition-all shadow-[inset_2px_3px_6px_rgba(0,0,0,0.12),inset_-2px_-2px_5px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-normal text-[14px]"
+                  placeholder="Masukan username / email anda"
                 />
               </div>
             </div>
@@ -135,20 +135,20 @@ export default function Login() {
             <div className="space-y-2">
               <label className="text-[13px] font-bold text-slate-700 pl-1">Kata Sandi</label>
               <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors z-10">
                   <Lock size={20} />
                 </div>
                 <input 
                   type={showPassword ? "text" : "password"} 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-50/80 border border-slate-200 hover:border-slate-300 rounded-[20px] py-[18px] pl-12 pr-12 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/10 transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-medium text-[15px]"
+                  className="w-full bg-slate-100/90 border border-slate-300/80 hover:border-slate-400 rounded-[20px] py-[18px] pl-12 pr-12 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/15 transition-all shadow-[inset_2px_3px_6px_rgba(0,0,0,0.12),inset_-2px_-2px_5px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-normal text-[14px]"
                   placeholder="••••••••"
                 />
                 <button 
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 z-10"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -158,10 +158,12 @@ export default function Login() {
               </div>
             </div>
 
-            <button 
+            <motion.button 
               type="submit"
               disabled={isLoading}
-              className="w-full h-[52px] relative overflow-hidden bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[18px] font-bold text-[15px] mt-6 flex items-center justify-center gap-2 hover:shadow-[0_12px_25px_-8px_rgba(14,165,233,0.6)] transition-all duration-300 active:scale-[0.97] group border border-blue-500/20 disabled:opacity-80 disabled:cursor-wait"
+              animate={{ y: [0, -5, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              className="w-full h-[54px] relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white rounded-[20px] font-bold text-[15px] mt-6 flex items-center justify-center gap-2.5 shadow-[0_10px_25px_-5px_rgba(14,165,233,0.5),0_4px_10px_rgba(0,0,0,0.1)] hover:shadow-[0_15px_30px_-5px_rgba(14,165,233,0.7)] transition-all duration-300 active:scale-[0.97] group border border-blue-400/30 disabled:opacity-80 disabled:cursor-wait cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -170,11 +172,16 @@ export default function Login() {
                 </>
               ) : (
                 <>
-                  Masuk
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform opacity-90" />
+                  <span className="tracking-wide text-[16px]">Masuk</span>
+                  <motion.div
+                    animate={{ x: [0, 5, 0] }}
+                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <ArrowRight size={20} className="opacity-90" />
+                  </motion.div>
                 </>
               )}
-            </button>
+            </motion.button>
           </form>
 
           <div className="mt-6 text-center text-[13px] font-semibold text-slate-500">
