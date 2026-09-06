@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppStore } from '../store/AppContext';
 import { 
   Users, Syringe, Calendar, ArrowLeft, Download, CheckCircle, Search, Filter, 
   Share2, Mail, Printer, Cloud, RefreshCw, FileText, ExternalLink, Plus, 
   CheckCircle2, Clock, AlertCircle, Edit3, Trash2, X, Save, Sparkles, Loader2,
-  Eye, MessageSquare, AlertTriangle, CheckCheck, ZoomIn, Send, FileCheck, FileWarning
+  Eye, MessageSquare, AlertTriangle, CheckCheck, ZoomIn, Send, FileCheck, FileWarning,
+  Upload, FileCheck2, ShieldCheck, Plane, MapPin, HeartPulse, Award
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { uploadFileToSupabase } from '../services/supabaseStorageService';
+import PermohonanVaksinDoc from '../components/documents/PermohonanVaksinDoc';
+import InformedConsentDoc from '../components/documents/InformedConsentDoc';
+import SkriningVaksinDoc from '../components/documents/SkriningVaksinDoc';
 
 export default function Admin() {
   const { 
@@ -21,7 +26,8 @@ export default function Admin() {
     refreshAllCloudData,
     isLoadingCloud,
     requestDocumentRevision,
-    verifyDocumentApproval
+    verifyDocumentApproval,
+    uploadOfficialEicv
   } = useAppStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'bookings' | 'stock' | 'history'>('bookings');
@@ -43,6 +49,49 @@ export default function Admin() {
   // Image Lightbox State
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const [zoomImageTitle, setZoomImageTitle] = useState('');
+
+  // E-ICV Upload state
+  const [eicvFile, setEicvFile] = useState<File | null>(null);
+  const [isUploadingEicv, setIsUploadingEicv] = useState(false);
+  const eicvFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Document Preview Modal State (Permohonan, Consent, Skrining)
+  const [previewDocType, setPreviewDocType] = useState<'permohonan' | 'consent' | 'skrining' | null>(null);
+
+  const handleUploadEicvSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatient || !eicvFile) return;
+
+    setIsUploadingEicv(true);
+    try {
+      const uploadRes = await uploadFileToSupabase(eicvFile, 'documents', `eicv_${selectedPatient.id}`);
+      const uploadedUrl = uploadRes.url || '';
+      const fileName = eicvFile.name;
+
+      await uploadOfficialEicv(selectedPatient.id, uploadedUrl, fileName);
+
+      setSelectedPatient((prev: any) => prev ? {
+        ...prev,
+        status: 'selesai',
+        patient: {
+          ...prev.patient,
+          e_icv_url: uploadedUrl,
+          e_icv_file_name: fileName,
+          e_icv_status: 'diterbitkan',
+          e_icv_issued_at: new Date().toISOString()
+        }
+      } : null);
+
+      setEicvFile(null);
+      if (eicvFileInputRef.current) eicvFileInputRef.current.value = '';
+      setAdminFeedback(`Sertifikat E-ICV Resmi berhasil diunggah ke Cloud Storage & otomatis terbit untuk ${selectedPatient.patient?.name}!`);
+      setTimeout(() => setAdminFeedback(null), 6000);
+    } catch (err: any) {
+      alert('Gagal mengupload E-ICV: ' + err.message);
+    } finally {
+      setIsUploadingEicv(false);
+    }
+  };
 
   const revisionPresets = [
     'Foto KTP buram / tulisan NIK & Nama tidak terbaca jelas. Mohon unggah ulang foto KTP asli yang terang dan tajam.',
@@ -257,6 +306,40 @@ export default function Admin() {
       </div>
 
       <div className="p-6 max-w-5xl mx-auto w-full">
+        {/* Quick Access to Document Logo Settings & Informed Consent */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200">
+              <Award size={20} />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-800 text-sm">Pengaturan Logo Formulir Resmi (Kop Surat)</h4>
+              <p className="text-xs text-slate-500">Logo Pemkot Sukabumi (Kiri) & Logo RSUD Al-Mulk (Kanan) untuk dokumen Informed Consent</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => navigate('/profile?view=eicv_settings')}
+              className="flex-1 sm:flex-initial px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1.5"
+            >
+              <Award size={14} />
+              <span>Atur Ketersediaan E-ICV</span>
+            </button>
+            <button
+              onClick={() => navigate('/profile?view=doc_logo_settings')}
+              className="flex-1 sm:flex-initial px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              Atur Logo Kop Surat
+            </button>
+            <button
+              onClick={() => navigate('/consent')}
+              className="flex-1 sm:flex-initial px-3.5 py-2 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95"
+            >
+              Informed Consent
+            </button>
+          </div>
+        </div>
+
         <div className="flex bg-slate-200/50 p-1 rounded-xl mb-6 overflow-x-auto hide-scrollbar max-w-lg">
           <button 
             onClick={() => setActiveTab('bookings')}
@@ -511,41 +594,85 @@ export default function Admin() {
                 </div>
              </div>
 
-             <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
-                {filteredBookings.slice().reverse().map((b, i) => {
-                   const vax = vaccines.find(v => v.id === b.vaccineId);
+             <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-100">
+                {filteredBookings.slice().reverse().map((b) => {
+                   const hasKtp = Boolean(b.patient?.ktp_url || b.patient?.ktp_file);
+                   const hasPassport = Boolean(b.patient?.passport_url || b.patient?.passport_file);
+                   const screeningStatus = b.patient?.screening_status || (b.status === 'selesai' ? 'layak' : 'belum');
+                   const isEicvIssued = b.patient?.e_icv_status === 'diterbitkan' || Boolean(b.patient?.e_icv_url);
+
                    return (
-                   <div key={b.id} onClick={() => setSelectedPatient(b)} className={`p-4 flex flex-col gap-2 cursor-pointer hover:bg-slate-50 transition-colors ${i !== filteredBookings.length - 1 ? 'border-b border-slate-100' : ''}`}>
-                      <div className="flex justify-between items-start">
+                   <div key={b.id} onClick={() => setSelectedPatient(b)} className="p-4 sm:p-5 flex flex-col gap-3 cursor-pointer hover:bg-slate-50/80 transition-colors">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-bold text-slate-800 text-[14px]">{b.patient?.name}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-extrabold text-slate-800 text-[15px]">{b.patient?.name}</p>
                               {b.patient?.document_status === 'perlu_revisi' && (
-                                <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-0.5">
-                                  <AlertTriangle size={9} /> Revisi
+                                <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                                  <AlertTriangle size={10} /> Perlu Revisi
                                 </span>
                               )}
                               {b.patient?.document_status === 'terverifikasi' && (
-                                <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-0.5">
-                                  <CheckCheck size={9} /> Terverifikasi
+                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                                  <CheckCheck size={10} /> Dokumen Valid
                                 </span>
                               )}
                             </div>
-                            <p className="text-[12px] font-medium text-slate-500 mt-0.5">Passport: {b.patient?.passport || b.patient?.no_passport || '-'}</p>
+                            <div className="flex items-center gap-2 text-[12px] font-medium text-slate-500 mt-1 flex-wrap">
+                              <span>NIK: <strong className="text-slate-700">{b.patient?.nik || '-'}</strong></span>
+                              <span>•</span>
+                              <span>Paspor: <strong className="text-slate-700">{b.patient?.passport || b.patient?.no_passport || '-'}</strong></span>
+                              <span>•</span>
+                              <span>HP: <strong className="text-slate-700">{b.patient?.handphone || b.patient?.no_hp || '-'}</strong></span>
+                            </div>
                          </div>
-                         <div className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${b.status === 'menunggu' ? 'bg-orange-50 text-orange-600 border border-orange-100' : b.status === 'terverifikasi' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                            {b.status}
+                         <div className="flex items-center gap-2">
+                            <div className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${b.status === 'menunggu' ? 'bg-orange-50 text-orange-600 border border-orange-200' : b.status === 'terverifikasi' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
+                               {b.status}
+                            </div>
                          </div>
                       </div>
-                      <div className="flex items-center justify-between mt-1 flex-wrap gap-1.5">
-                         <div className="flex flex-wrap gap-1 max-w-[320px]">
+
+                      {/* Travel & Date Info */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs bg-slate-50/90 rounded-xl p-2.5 border border-slate-100">
+                         <div className="flex items-center gap-1.5 text-slate-600">
+                           <Plane size={14} className="text-blue-600 shrink-0" />
+                           <span>Tujuan: <strong className="text-slate-800">{b.patient?.purpose || 'Umroh / Haji'}</strong> {b.patient?.targetCountry ? `(${b.patient.targetCountry})` : ''}</span>
+                         </div>
+                         <div className="flex items-center gap-1.5 text-slate-600">
+                           <Calendar size={14} className="text-orange-500 shrink-0" />
+                           <span>Berangkat: <strong className="text-slate-800">{b.patient?.departureDate || 'Belum diisi'}</strong></span>
+                         </div>
+                         <div className="flex items-center gap-1.5 text-slate-600">
+                           <Clock size={14} className="text-teal-600 shrink-0" />
+                           <span>Jadwal Vaksin: <strong className="text-slate-800">{b.date} • {b.time}</strong></span>
+                         </div>
+                      </div>
+
+                      {/* Document, Screening & E-ICV Status Badges */}
+                      <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+                         <div className="flex items-center gap-1.5 flex-wrap">
+                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${hasKtp ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-slate-100 text-slate-400'}`}>
+                             KTP {hasKtp ? '✓' : '✗'}
+                           </span>
+                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${hasPassport ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-slate-100 text-slate-400'}`}>
+                             Paspor {hasPassport ? '✓' : '✗'}
+                           </span>
+                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${screeningStatus === 'layak' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : screeningStatus === 'tunda' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                             <HeartPulse size={11} /> Skrining: {screeningStatus.toUpperCase()}
+                           </span>
+                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${isEicvIssued ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold' : 'bg-slate-100 text-slate-500'}`}>
+                             <Award size={11} /> E-ICV: {isEicvIssued ? 'DITERBITKAN' : 'MENUNGGU'}
+                           </span>
+                         </div>
+
+                         <div className="flex flex-wrap gap-1">
                            {getBookingVaccines(b).map(v => (
-                             <span key={v.id} className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                             <span key={v.id} className="text-[10px] font-bold text-slate-700 bg-slate-200/80 px-2 py-0.5 rounded-md">
                                {v.name}
                              </span>
                            ))}
                          </div>
-                         <div className="text-[11px] font-bold text-slate-400">{b.date} • {b.time}</div>
                       </div>
                    </div>
                 )})}
@@ -786,32 +913,128 @@ export default function Admin() {
 
                   {/* Biodata Section */}
                   <div>
-                     <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Biodata Pelaku Perjalanan</p>
-                     <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 grid grid-cols-2 gap-4">
+                     <div className="flex items-center justify-between mb-2">
+                       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Biodata Pelaku Perjalanan (Single Source of Truth)</p>
+                       <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-100">Booking SIVAKSIN</span>
+                     </div>
+                     <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 grid grid-cols-2 gap-3.5">
                         <div className="col-span-2">
-                           <p className="text-[11px] text-slate-500">Nama Lengkap</p>
-                           <p className="font-bold text-[14px] text-slate-800">{selectedPatient.patient?.name}</p>
+                           <p className="text-[11px] text-slate-500">Nama Lengkap Pasien</p>
+                           <p className="font-extrabold text-[15px] text-slate-800">{selectedPatient.patient?.name}</p>
                         </div>
                         <div>
                            <p className="text-[11px] text-slate-500">NIK (KTP)</p>
-                           <p className="font-bold text-[14px] text-slate-800">{selectedPatient.patient?.nik || '-'}</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.nik || '-'}</p>
                         </div>
                         <div>
                            <p className="text-[11px] text-slate-500">No. Passport</p>
-                           <p className="font-bold text-[14px] text-slate-800">{selectedPatient.patient?.passport || selectedPatient.patient?.passport_number || '-'}</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.passport || selectedPatient.patient?.no_passport || selectedPatient.patient?.passport_number || '-'}</p>
+                        </div>
+                        <div>
+                           <p className="text-[11px] text-slate-500">Tempat / Tanggal Lahir</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.pob || selectedPatient.patient?.tempatLahir || '-'}, {selectedPatient.patient?.dob || selectedPatient.patient?.tanggalLahir || '-'}</p>
+                        </div>
+                        <div>
+                           <p className="text-[11px] text-slate-500">Jenis Kelamin</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.gender || selectedPatient.patient?.jenisKelamin || 'Laki-laki'}</p>
                         </div>
                         <div>
                            <p className="text-[11px] text-slate-500">No. Handphone / WhatsApp</p>
-                           <p className="font-bold text-[14px] text-slate-800">{selectedPatient.patient?.handphone || selectedPatient.patient?.no_hp || '-'}</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.handphone || selectedPatient.patient?.no_hp || '-'}</p>
+                        </div>
+                        <div>
+                           <p className="text-[11px] text-slate-500">Email Pasien</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.email || '-'}</p>
+                        </div>
+                        <div>
+                           <p className="text-[11px] text-slate-500">Pekerjaan</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.occupation || selectedPatient.patient?.pekerjaan || '-'}</p>
+                        </div>
+                        <div>
+                           <p className="text-[11px] text-slate-500">NPWP</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.npwp || '-'}</p>
                         </div>
                         <div>
                            <p className="text-[11px] text-slate-500">Tujuan Keberangkatan</p>
-                           <p className="font-bold text-[14px] text-slate-800">{selectedPatient.patient?.purpose || 'Umroh / Haji'}</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.purpose || 'Umroh / Haji'}</p>
+                        </div>
+                        <div>
+                           <p className="text-[11px] text-slate-500">Negara Tujuan</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.targetCountry || selectedPatient.patient?.negaraTujuan || 'Arab Saudi'}</p>
+                        </div>
+                        <div>
+                           <p className="text-[11px] text-slate-500">Tanggal Keberangkatan</p>
+                           <p className="font-bold text-[13px] text-orange-700 flex items-center gap-1">
+                             <Calendar size={13} className="shrink-0" />
+                             {selectedPatient.patient?.departureDate || selectedPatient.patient?.tanggalKeberangkatan || 'Belum diisi'}
+                           </p>
+                        </div>
+                        <div>
+                           <p className="text-[11px] text-slate-500">Agen / Travel Umroh</p>
+                           <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.travelAgency || selectedPatient.patient?.travel_agency || selectedPatient.patient?.travelAgent || '-'}</p>
                         </div>
                         <div className="col-span-2">
-                           <p className="text-[11px] text-slate-500">Alamat</p>
+                           <p className="text-[11px] text-slate-500">Alamat Tempat Tinggal</p>
                            <p className="font-bold text-[13px] text-slate-800">{selectedPatient.patient?.address || selectedPatient.patient?.alamat || '-'}</p>
                         </div>
+                     </div>
+                  </div>
+
+                  {/* Formulir Resmi Terintegrasi (Permohonan, Informed Consent, Skrining) */}
+                  <div>
+                     <div className="flex items-center justify-between mb-2">
+                       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dokumen Rekam Medis Resmi (Terintegrasi)</p>
+                       <span className="text-[10px] font-semibold text-slate-500">Format Kemenkes RI</span>
+                     </div>
+
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                       {/* Form Permohonan Vaksin */}
+                       <button
+                         type="button"
+                         onClick={() => setPreviewDocType('permohonan')}
+                         className="p-3.5 bg-blue-50/70 hover:bg-blue-100/80 border border-blue-200/80 rounded-2xl flex flex-col items-start text-left transition-all active:scale-98 cursor-pointer group shadow-xs"
+                       >
+                         <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center mb-2 group-hover:scale-105 transition-transform shadow-xs">
+                           <FileText size={16} />
+                         </div>
+                         <span className="text-xs font-extrabold text-blue-950 block leading-tight mb-1">Form Permohonan</span>
+                         <span className="text-[10px] text-blue-700/80 font-medium leading-relaxed">Permohonan Vaksinasi Internasional</span>
+                         <span className="mt-2 text-[9px] font-bold text-blue-800 bg-blue-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                           <Printer size={10} /> Buka & Cetak
+                         </span>
+                       </button>
+
+                       {/* Informed Consent */}
+                       <button
+                         type="button"
+                         onClick={() => setPreviewDocType('consent')}
+                         className="p-3.5 bg-purple-50/70 hover:bg-purple-100/80 border border-purple-200/80 rounded-2xl flex flex-col items-start text-left transition-all active:scale-98 cursor-pointer group shadow-xs"
+                       >
+                         <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center mb-2 group-hover:scale-105 transition-transform shadow-xs">
+                           <CheckCheck size={16} />
+                         </div>
+                         <span className="text-xs font-extrabold text-purple-950 block leading-tight mb-1">Informed Consent</span>
+                         <span className="text-[10px] text-purple-700/80 font-medium leading-relaxed">Persetujuan Tindakan Medis</span>
+                         <span className="mt-2 text-[9px] font-bold text-purple-800 bg-purple-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                           <Printer size={10} /> Buka & Cetak
+                         </span>
+                       </button>
+
+                       {/* Form Skrining */}
+                       <button
+                         type="button"
+                         onClick={() => setPreviewDocType('skrining')}
+                         className="p-3.5 bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-200/80 rounded-2xl flex flex-col items-start text-left transition-all active:scale-98 cursor-pointer group shadow-xs"
+                       >
+                         <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center mb-2 group-hover:scale-105 transition-transform shadow-xs">
+                           <HeartPulse size={16} />
+                         </div>
+                         <span className="text-xs font-extrabold text-emerald-950 block leading-tight mb-1">Form Skrining</span>
+                         <span className="text-[10px] text-emerald-700/80 font-medium leading-relaxed">11 Poin Skrining Kesehatan</span>
+                         <span className="mt-2 text-[9px] font-bold text-emerald-800 bg-emerald-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                           <Printer size={10} /> Buka & Verifikasi
+                         </span>
+                       </button>
                      </div>
                   </div>
 
@@ -1020,29 +1243,165 @@ export default function Admin() {
                      </div>
                   </div>
 
-                  {(selectedPatient.status === 'terverifikasi' || selectedPatient.status === 'selesai') && (
-                     <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Kirim Sertifikat (E-ICV)</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                           <button className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 p-3 rounded-xl border border-emerald-200 flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer">
-                              <Share2 size={18} />
-                              <span className="text-[10px] font-bold">WhatsApp</span>
-                           </button>
-                           <button className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-3 rounded-xl border border-blue-200 flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer">
-                              <Mail size={18} />
-                              <span className="text-[10px] font-bold">Email</span>
-                           </button>
-                           <button className="bg-rose-50 hover:bg-rose-100 text-rose-700 p-3 rounded-xl border border-rose-200 flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer">
-                              <Download size={18} />
-                              <span className="text-[10px] font-bold">Unduh PDF</span>
-                           </button>
-                           <button className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-3 rounded-xl border border-slate-200 flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer">
-                              <Printer size={18} />
-                              <span className="text-[10px] font-bold">Print</span>
-                           </button>
-                        </div>
+                  {/* Manajemen E-ICV Resmi (Upload & Penerbitan ke Supabase Storage) */}
+                  <div className="border-t border-slate-200/80 pt-4">
+                     <div className="flex items-center justify-between mb-2.5">
+                       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Penerbitan Dokumen Resmi E-ICV</p>
+                       {selectedPatient.patient?.e_icv_url ? (
+                         <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                           <Award size={11} /> E-ICV DITERBITKAN
+                         </span>
+                       ) : (
+                         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                           <Clock size={11} /> BELUM DITERBITKAN
+                         </span>
+                       )}
                      </div>
-                  )}
+
+                     {/* Status Card E-ICV */}
+                     {selectedPatient.patient?.e_icv_url ? (
+                       <div className="bg-gradient-to-br from-emerald-50 to-teal-50/70 border border-emerald-200 rounded-2xl p-4 mb-4">
+                         <div className="flex items-start justify-between gap-3">
+                           <div className="flex items-center gap-3">
+                             <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                               <Award size={20} />
+                             </div>
+                             <div>
+                               <h4 className="text-xs font-bold text-emerald-950">Sertifikat Resmi E-ICV Telah Aktif</h4>
+                               <p className="text-[11px] text-emerald-700 font-medium mt-0.5">
+                                 File: <strong>{selectedPatient.patient?.e_icv_file_name || 'Sertifikat_EICV_Resmi.pdf'}</strong>
+                                </p>
+                               {selectedPatient.patient?.e_icv_issued_at && (
+                                 <p className="text-[10px] text-emerald-600 mt-0.5">
+                                   Diterbitkan pada: {new Date(selectedPatient.patient.e_icv_issued_at).toLocaleString('id-ID')}
+                                 </p>
+                               )}
+                             </div>
+                           </div>
+                           <a
+                             href={selectedPatient.patient.e_icv_url}
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer shrink-0"
+                           >
+                             <Download size={13} /> Buka / Unduh
+                           </a>
+                         </div>
+                       </div>
+                     ) : (
+                       <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 mb-4 flex items-center gap-2.5 text-xs text-amber-900">
+                         <AlertTriangle size={17} className="text-amber-600 shrink-0" />
+                         <span>E-ICV belum diunggah untuk pasien ini. Unggah dokumen resmi di bawah setelah tindakan vaksinasi selesai.</span>
+                       </div>
+                     )}
+
+                     {/* Upload Form */}
+                     <form onSubmit={handleUploadEicvSubmit} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                       <div className="flex items-center justify-between">
+                         <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                           <Upload size={14} className="text-brand-600" />
+                           <span>{selectedPatient.patient?.e_icv_url ? 'Perbarui / Unggah Ulang File E-ICV Resmi' : 'Upload Dokumen Resmi E-ICV Pasien'}</span>
+                         </label>
+                         <span className="text-[10px] text-slate-400 font-medium">Format: PDF, JPG, PNG (Maks 10MB)</span>
+                       </div>
+
+                       <div className="flex items-center gap-2.5">
+                         <input
+                           ref={eicvFileInputRef}
+                           type="file"
+                           accept=".pdf,image/png,image/jpeg,image/jpg"
+                           onChange={(e) => {
+                             if (e.target.files && e.target.files[0]) {
+                               setEicvFile(e.target.files[0]);
+                             }
+                           }}
+                           className="text-xs file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer text-slate-600 flex-1 border border-slate-200 rounded-xl bg-white p-1"
+                         />
+
+                         <button
+                           type="submit"
+                           disabled={!eicvFile || isUploadingEicv}
+                           className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-sm shrink-0 cursor-pointer ${
+                             !eicvFile || isUploadingEicv
+                               ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                               : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white active:scale-95'
+                           }`}
+                         >
+                           {isUploadingEicv ? (
+                             <>
+                               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                               <span>Mengunggah...</span>
+                             </>
+                           ) : (
+                             <>
+                               <Upload size={13} />
+                               <span>Simpan & Terbitkan</span>
+                             </>
+                           )}
+                         </button>
+                       </div>
+
+                       {eicvFile && (
+                         <div className="text-[11px] text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center justify-between">
+                           <span>File siap diunggah: <strong>{eicvFile.name}</strong> ({(eicvFile.size / 1024).toFixed(1)} KB)</span>
+                           <button
+                             type="button"
+                             onClick={() => {
+                               setEicvFile(null);
+                               if (eicvFileInputRef.current) eicvFileInputRef.current.value = '';
+                             }}
+                             className="text-slate-400 hover:text-slate-600 ml-2"
+                           >
+                             ✕
+                           </button>
+                         </div>
+                       )}
+
+                       <p className="text-[10px] text-slate-500 leading-relaxed">
+                         * File akan disimpan secara aman di <strong>Supabase Storage</strong>, mengubah status pendaftaran menjadi <strong>'Selesai'</strong>, dan mengirimkan notifikasi resmi ke akun jamaah bahwa dokumen E-ICV sudah siap diunduh.
+                       </p>
+                     </form>
+
+                     {/* Kirim Cepat / Sharing */}
+                     <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
+                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kirim Dokumen ke Pasien:</span>
+                       <div className="flex items-center gap-1.5">
+                         <button
+                           type="button"
+                           onClick={() => {
+                             const phone = selectedPatient.patient?.handphone || selectedPatient.patient?.no_hp;
+                             if (!phone) {
+                               alert('Nomor WhatsApp pasien tidak tersedia.');
+                               return;
+                             }
+                             const cleanPhone = phone.replace(/\D/g, '');
+                             const intlPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
+                             const message = encodeURIComponent(`Halo ${selectedPatient.patient?.name},\n\nSertifikat Vaksinasi Internasional (E-ICV) resmi Anda dari UOBK RSUD Al-Mulk Kota Sukabumi telah selesai diterbitkan.\nSilakan cek dan unduh melalui menu E-ICV pada aplikasi SIVAKSIN.\n\nTerima kasih.`);
+                             window.open(`https://wa.me/${intlPhone}?text=${message}`, '_blank');
+                           }}
+                           className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer border border-emerald-200"
+                         >
+                           <Share2 size={12} /> WhatsApp
+                         </button>
+                         <button
+                           type="button"
+                           onClick={() => {
+                             const email = selectedPatient.patient?.email;
+                             if (!email) {
+                               alert('Email pasien tidak tersedia.');
+                               return;
+                             }
+                             const subject = encodeURIComponent('Penerbitan Sertifikat E-ICV - RSUD Al-Mulk Sukabumi');
+                             const body = encodeURIComponent(`Yth. ${selectedPatient.patient?.name},\n\nDokumen E-ICV Anda telah diterbitkan secara resmi oleh UOBK RSUD Al-Mulk Kota Sukabumi.`);
+                             window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
+                           }}
+                           className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer border border-blue-200"
+                         >
+                           <Mail size={12} /> Email
+                         </button>
+                       </div>
+                     </div>
+                  </div>
                </div>
                
                <div className="p-4 border-t border-slate-100 bg-slate-50 mt-auto rounded-b-3xl">
@@ -1197,6 +1556,69 @@ export default function Admin() {
           </div>
         </div>
       )}
+
+      {/* Official Documents Fullscreen / Printable Preview Modal */}
+      {previewDocType && selectedPatient && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-4xl rounded-3xl max-h-[96vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95">
+            {/* Top Toolbar */}
+            <div className="bg-slate-900 text-white px-6 py-3.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText size={18} className="text-teal-400" />
+                <span className="font-extrabold text-sm tracking-tight">
+                  {previewDocType === 'permohonan' && 'Formulir Permohonan Vaksinasi Internasional'}
+                  {previewDocType === 'consent' && 'Informed Consent (Persetujuan Tindakan Medis)'}
+                  {previewDocType === 'skrining' && 'Formulir Skrining Kesehatan Calon Penerima Vaksin'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                >
+                  <Printer size={13} /> Cetak / PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDocType(null)}
+                  className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-sm font-bold cursor-pointer transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Document Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto bg-slate-100/60 flex justify-center">
+              <div className="bg-white rounded-2xl shadow-md border border-slate-200 w-full max-w-[850px] p-4 sm:p-8">
+                {previewDocType === 'permohonan' && (
+                  <PermohonanVaksinDoc booking={selectedPatient} isPrintMode={true} />
+                )}
+                {previewDocType === 'consent' && (
+                  <InformedConsentDoc booking={selectedPatient} isPrintMode={true} />
+                )}
+                {previewDocType === 'skrining' && (
+                  <SkriningVaksinDoc booking={selectedPatient} isPrintMode={true} canEdit={true} />
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0 px-6">
+              <span className="text-xs text-slate-500">UOBK RSUD Al-Mulk Kota Sukabumi • SIVAKSIN Terintegrasi</span>
+              <button
+                type="button"
+                onClick={() => setPreviewDocType(null)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+              >
+                Tutup Dokumen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

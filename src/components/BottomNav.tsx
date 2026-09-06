@@ -35,7 +35,7 @@ export function BottomNav() {
 
       <div className="relative h-[76px] pb-[env(safe-area-inset-bottom)] px-3 sm:px-6 flex items-center justify-between z-10 w-full">
         <NavItem to="/home" icon={<Home size={24} />} label="Home" />
-        <NavItem to="/history" icon={<Calendar size={24} />} label="Jadwal" />
+        <NavItem to="/schedule" icon={<Calendar size={24} />} label="Jadwal" />
         
         {/* Center floating button perfectly nested in the curve with a gap */}
         <div className="relative -translate-y-3 flex items-center justify-center w-[72px]">

@@ -5,13 +5,16 @@ import {
   Bell, Search, Syringe, Calendar, FileText, Activity, 
   ArrowRight, ShieldAlert, Plane, QrCode, Mic, SlidersHorizontal, 
   MapPin, MessageCircle, FileWarning, Globe, ShieldCheck, Shield, Phone, ChevronRight, CheckCircle, BookOpen, Clock,
-  Award, HeartPulse, BriefcaseMedical, History as HistoryIcon, Camera, Image as ImageIcon
+  Award, HeartPulse, BriefcaseMedical, History as HistoryIcon, Camera, Image as ImageIcon,
+  FileCheck2, ChevronDown, ChevronUp, ExternalLink, X
 } from 'lucide-react';
 import { useAppStore } from '../store/AppContext';
 
 export default function Home() {
-  const { user, vaccines, bookings, appLogo, notifications } = useAppStore();
+  const { user, role, vaccines, bookings, appLogo, notifications, eicvStock, eicvStatus, eicvNote } = useAppStore();
   const navigate = useNavigate();
+  const [showAllMenu, setShowAllMenu] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(appLogo || localStorage.getItem('app_logo'));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatar_url || user?.avatar || localStorage.getItem('sivaksin_user_avatar'));
 
@@ -74,6 +77,129 @@ export default function Home() {
     }, 5000);
     return () => clearInterval(timer);
   }, [banners.length]);
+
+  // Master menu items: 8 menu default + menu tambahan saat Selengkapnya diklik
+  const allMenuItems = [
+    {
+      id: 'booking',
+      icon: <Syringe />,
+      label: 'Booking Vaksin',
+      bg: 'bg-blue-50/80',
+      color: 'text-blue-600',
+      ring: 'ring-blue-100',
+      onClick: () => navigate('/register')
+    },
+    {
+      id: 'consent',
+      icon: <FileCheck2 />,
+      label: 'Informed Consent',
+      bg: 'bg-teal-50/80',
+      color: 'text-teal-700',
+      ring: 'ring-teal-100',
+      onClick: () => navigate('/informed-consent')
+    },
+    {
+      id: 'eicv',
+      icon: <Award />,
+      label: 'E-ICV',
+      bg: 'bg-emerald-50/80',
+      color: 'text-emerald-600',
+      ring: 'ring-emerald-100',
+      onClick: () => navigate('/certificate')
+    },
+    {
+      id: 'schedule',
+      icon: <Calendar />,
+      label: 'Jadwal',
+      bg: 'bg-orange-50/80',
+      color: 'text-orange-500',
+      ring: 'ring-orange-100',
+      onClick: () => navigate('/schedule')
+    },
+    {
+      id: 'anafilaktik',
+      icon: <BriefcaseMedical />,
+      label: 'Anafilaktik Kit',
+      bg: 'bg-rose-50/80',
+      color: 'text-rose-600',
+      ring: 'ring-rose-100',
+      onClick: () => navigate('/anafilaktik')
+    },
+    {
+      id: 'status',
+      icon: <HeartPulse />,
+      label: 'Cek Status',
+      bg: 'bg-indigo-50/80',
+      color: 'text-indigo-600',
+      ring: 'ring-indigo-100',
+      onClick: () => navigate('/status')
+    },
+    {
+      id: 'konsultasi',
+      icon: <MessageCircle />,
+      label: 'Konsultasi Admin',
+      bg: 'bg-cyan-50/80',
+      color: 'text-cyan-600',
+      ring: 'ring-cyan-100',
+      onClick: () => {
+        window.open('https://wa.me/6281288882568?text=Halo%20Admin%20Klinik%20Vaksinasi%20RSUD%20Al-Mulk,%20saya%20ingin%20konsultasi%20vaksinasi%20internasional', '_blank');
+      }
+    },
+    {
+      id: 'location',
+      icon: <MapPin />,
+      label: 'Lokasi',
+      bg: 'bg-amber-50/80',
+      color: 'text-amber-600',
+      ring: 'ring-amber-100',
+      onClick: () => setIsLocationModalOpen(true)
+    },
+    // Menu Tambahan (Tampil jika user klik 'Selengkapnya')
+    {
+      id: 'history',
+      icon: <HistoryIcon />,
+      label: 'Riwayat',
+      bg: 'bg-slate-50/80',
+      color: 'text-slate-600',
+      ring: 'ring-slate-200',
+      onClick: () => navigate('/history')
+    },
+    {
+      id: 'syarat',
+      icon: <Globe />,
+      label: 'Syarat Negara',
+      bg: 'bg-purple-50/80',
+      color: 'text-purple-600',
+      ring: 'ring-purple-100',
+      onClick: () => {
+        const el = document.getElementById('syarat-negara-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }
+    },
+    {
+      id: 'edukasi',
+      icon: <BookOpen />,
+      label: 'Pusat Edukasi',
+      bg: 'bg-teal-50/80',
+      color: 'text-teal-700',
+      ring: 'ring-teal-100',
+      onClick: () => {
+        const el = document.getElementById('edukasi-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }
+    },
+    {
+      id: 'pengaturan',
+      icon: <SlidersHorizontal />,
+      label: 'Pengaturan',
+      bg: 'bg-stone-50/80',
+      color: 'text-stone-600',
+      ring: 'ring-stone-200',
+      onClick: () => navigate('/profile')
+    }
+  ];
+
+  const displayedMenus = showAllMenu ? allMenuItems : allMenuItems.slice(0, 8);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 font-sans">
@@ -209,18 +335,35 @@ export default function Home() {
 
       <div className="px-5 md:px-8 mt-2 relative z-20 flex flex-col gap-8 max-w-7xl mx-auto w-full">
 
-        {/* Quick Menu / Layanan Utama Premium */}
+        {/* Quick Menu / Layanan Utama */}
         <div className="bg-white/80 backdrop-blur-2xl rounded-[32px] p-5 pb-6 md:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-white relative z-10 mx-2 md:mx-0 -mt-2">
-            <div className="grid grid-cols-4 md:grid-cols-8 gap-y-7 gap-x-2 md:gap-4">
-                <MenuIcon icon={<Syringe />} label="Booking Vaksin" bg="bg-blue-50/80" color="text-blue-600" ring="ring-blue-100" onClick={() => navigate('/register')} />
-                <MenuIcon icon={<Award />} label="E-ICV" bg="bg-emerald-50/80" color="text-emerald-600" ring="ring-emerald-100" onClick={() => navigate('/certificate')} />
-                <MenuIcon icon={<Calendar />} label="Jadwal" bg="bg-orange-50/80" color="text-orange-500" ring="ring-orange-100" onClick={() => navigate('/history')} />
-                <MenuIcon icon={<MessageCircle />} label="Konsultasi Admin" bg="bg-cyan-50/80" color="text-cyan-600" ring="ring-cyan-100" />
-                <MenuIcon icon={<BriefcaseMedical />} label="Anafilaktik Kit" bg="bg-rose-50/80" color="text-rose-600" ring="ring-rose-100" onClick={() => navigate('/anafilaktik')} />
-                <MenuIcon icon={<HeartPulse />} label="Cek Status" bg="bg-rose-50/80" color="text-rose-600" ring="ring-rose-100" onClick={() => navigate('/status')} />
-                <MenuIcon icon={<MapPin />} label="Lokasi RS" bg="bg-teal-50/80" color="text-teal-600" ring="ring-teal-100" />
-                <MenuIcon icon={<HistoryIcon />} label="Riwayat" bg="bg-slate-50/80" color="text-slate-600" ring="ring-slate-200" onClick={() => navigate('/history')} />
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-y-7 gap-x-2 md:gap-4 transition-all">
+                {displayedMenus.map((menu) => (
+                  <MenuIcon 
+                    key={menu.id}
+                    icon={menu.icon}
+                    label={menu.label}
+                    bg={menu.bg}
+                    color={menu.color}
+                    ring={menu.ring}
+                    onClick={menu.onClick}
+                  />
+                ))}
             </div>
+
+            {/* Toggle Selengkapnya jika menu lebih dari 8 */}
+            {allMenuItems.length > 8 && (
+              <div className="mt-5 pt-3.5 border-t border-slate-100/80 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowAllMenu(!showAllMenu)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-100/90 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+                >
+                  <span>{showAllMenu ? 'Ringkas Menu (Tampilkan 8 Menu)' : `Selengkapnya (${allMenuItems.length - 8} Layanan Lainnya)`}</span>
+                  {showAllMenu ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </button>
+              </div>
+            )}
         </div>
 
         {/* Responsive Content Grid: On mobile stacks naturally, on desktop becomes a 12-col grid */}
@@ -262,22 +405,33 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Daftar Vaksin Tersedia */}
+            {/* Daftar Vaksin Tersedia (Stok Realtime Terintegrasi) */}
             <div>
               <div className="flex justify-between items-end mb-4 px-1">
                 <div>
                   <h3 className="font-bold text-slate-800 text-lg">Daftar Vaksin Tersedia</h3>
-                  <p className="text-xs text-slate-500 font-medium">Layanan vaksinasi bersertifikat resmi ICV internasional</p>
+                  <p className="text-xs text-slate-500 font-medium">Informasi stok vaksin realtime klinik vaksinasi RSUD Al-Mulk</p>
                 </div>
-                <button onClick={() => navigate('/register')} className="text-xs font-bold text-brand-600 hover:text-brand-800 cursor-pointer">Lengkap</button>
+                {(user?.role === 'admin' || role === 'admin') ? (
+                  <button 
+                    onClick={() => navigate('/profile?view=vaccine_settings')} 
+                    className="text-xs font-bold text-brand-600 hover:text-brand-800 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer"
+                  >
+                    <SlidersHorizontal size={13} />
+                    <span>Pengaturan Stok</span>
+                  </button>
+                ) : (
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Stok Realtime</span>
+                  </span>
+                )}
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {vaccines.map((v, i) => {
-                  const iconColor = i === 0 ? 'bg-orange-100 text-orange-600' : i === 1 ? 'bg-blue-100 text-blue-600' : 'bg-health-100 text-health-600';
-                  const stockStatus = v.stock > 100 ? { label: 'Tersedia', color: 'text-health-600 bg-health-50 border-health-200' } : 
-                                      v.stock > 0 ? { label: 'Hampir Habis', color: 'text-orange-600 bg-orange-50 border-orange-200' } : 
-                                      { label: 'Habis', color: 'text-red-600 bg-red-50 border-red-200' };
+                  const iconColor = i === 0 ? 'bg-orange-100 text-orange-600' : i === 1 ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600';
+                  const isAvailable = v.stock > 0;
                   
                   return (
                   <div key={v.id} className="glass-card p-4 rounded-3xl flex flex-col justify-between gap-3 border border-slate-100 shadow-sm transition-all hover:shadow-md bg-white">
@@ -286,22 +440,31 @@ export default function Home() {
                         <Syringe size={28} strokeWidth={1.5} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-slate-800 text-sm truncate">{v.name.split(' (')[0]}</h4>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h4 className="font-bold text-slate-800 text-sm truncate">{v.name.split(' (')[0]}</h4>
+                          {v.category && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                              {v.category}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{v.description}</p>
                       </div>
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t border-slate-100">
                       <div className="flex flex-col">
                         <span className="text-[10px] text-slate-400 font-medium tracking-wide uppercase mb-0.5">Biaya Vaksinasi</span>
-                        <span className="text-sm font-black text-brand-700">Rp {(v.price / 1000).toFixed(0)} rb</span>
+                        <span className="text-sm font-black text-brand-700">Rp {(v.price).toLocaleString('id-ID')}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-bold px-2 py-1.5 rounded-lg border uppercase tracking-wider ${stockStatus.color}`}>
-                          {stockStatus.label}
-                        </span>
-                        <button onClick={() => navigate('/register')} disabled={v.stock === 0} className={`px-4 py-2 rounded-xl text-xs font-bold transition-transform active:scale-95 cursor-pointer ${v.stock === 0 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-brand-600 text-white shadow-md shadow-brand-500/20 hover:bg-brand-700'}`}>
-                          Booking
-                        </button>
+                      <div className="flex items-center">
+                        <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                          isAvailable 
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200 shadow-xs' 
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          <span className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                          <span>{isAvailable ? `Stok: ${v.stock} Dosis` : 'Stok Kosong (0)'}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -438,32 +601,59 @@ export default function Home() {
               )}
             </div>
 
-            {/* Quick Syock Anafilaktik Kit Widget */}
-            <div className="bg-gradient-to-br from-rose-950 via-slate-900 to-rose-900 text-white rounded-[28px] p-5 shadow-lg border border-rose-500/20 relative overflow-hidden">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-rose-500/30 text-rose-300 flex items-center justify-center border border-rose-400/30">
-                    <BriefcaseMedical size={16} />
+            {/* Widget Ketersediaan E-ICV Realtime */}
+            <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 text-white rounded-[28px] p-5 shadow-lg border border-emerald-500/30 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+              
+              <div className="flex items-center justify-between mb-3 relative z-10">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-400/30 shrink-0">
+                    <Award size={18} />
                   </div>
                   <div>
-                    <h4 className="font-extrabold text-xs text-white">Monitoring Syock Kit</h4>
-                    <p className="text-[10px] text-rose-200/80">SOP Tanggap Darurat Al-Mulk</p>
+                    <h4 className="font-extrabold text-xs text-white">Ketersediaan E-ICV</h4>
+                    <p className="text-[10px] text-emerald-300">Buku Kuning Internasional</p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                  Siap Pakai
+                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-xs ${
+                  eicvStatus === 'Tersedia' 
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40' 
+                    : eicvStatus === 'Terbatas' 
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' 
+                    : 'bg-rose-500/20 text-rose-300 border-rose-400/40'
+                }`}>
+                  ● {eicvStatus}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300 leading-relaxed mb-4">
-                Pemeriksaan berkala isi ampul Epinefrin, spuit, dan peralatan anafilaktik kit di ruang imunisasi.
-              </p>
-              <button 
-                onClick={() => navigate('/anafilaktik')}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Buka Form & Laporan Resmi</span>
-                <ChevronRight size={14} />
-              </button>
+
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 mb-3.5 relative z-10">
+                <div className="flex items-baseline justify-between mb-1">
+                  <span className="text-[11px] text-slate-300 font-medium">Stok Blanko Resmi:</span>
+                  <span className="text-lg font-black text-emerald-300">{eicvStock} <span className="text-[11px] font-bold text-white">Buku</span></span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed line-clamp-2">
+                  {eicvNote || 'Blanko Resmi E-ICV / Buku Kuning Siap Diterbitkan di RSUD Al-Mulk'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 relative z-10">
+                <button 
+                  onClick={() => navigate('/certificate')}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                >
+                  <span>Cek E-ICV Saya</span>
+                  <ChevronRight size={14} />
+                </button>
+                {(user?.role === 'admin' || role === 'admin') && (
+                  <button 
+                    onClick={() => navigate('/profile?view=eicv_settings')}
+                    title="Atur Ketersediaan E-ICV di Pengaturan Admin"
+                    className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition-all flex items-center justify-center cursor-pointer active:scale-95"
+                  >
+                    <SlidersHorizontal size={14} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Jam Buka & Info Kontak Al-Mulk */}
@@ -489,11 +679,85 @@ export default function Home() {
 
       </div>
 
+      {/* Modal Informasi Lokasi RSUD Al-Mulk */}
+      {isLocationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] p-6 max-w-md w-full shadow-2xl border border-slate-100 relative space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200/60">
+                  <MapPin size={22} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base leading-tight">
+                    Lokasi Pelayanan Vaksinasi
+                  </h3>
+                  <p className="text-xs text-slate-500">UOBK RSUD Al-Mulk Kota Sukabumi</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsLocationModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2.5 text-xs text-slate-700">
+              <div className="flex items-start gap-2.5">
+                <MapPin size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-slate-900">Klinik Vaksinasi Internasional & Rawat Jalan</p>
+                  <p className="text-slate-600 leading-relaxed mt-0.5">
+                    Jl. Pelabuhan II KM. 6, Kel. Lembursitu, Kec. Lembursitu, Kota Sukabumi, Jawa Barat 43169
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 pt-2 border-t border-slate-200/60">
+                <Clock size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-slate-900">Jam Operasional Pelayanan</p>
+                  <p className="text-slate-600">Senin - Sabtu: 08.00 - 14.00 WIB (Hari Minggu/Libur Nasional Tutup)</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 pt-2 border-t border-slate-200/60">
+                <Phone size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-slate-900">Kontak Informasi & Emergency</p>
+                  <p className="text-slate-600">(0266) 6243088 / 0812-8888-2568</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsLocationModalOpen(false)}
+                className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Tutup
+              </button>
+              <a
+                href="https://maps.google.com/?q=RSUD+Al-Mulk+Kota+Sukabumi"
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5 cursor-pointer text-center"
+              >
+                <span>Buka Google Maps</span>
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
-function MenuIcon({ icon, label, bg, color, ring, onClick }: { icon: React.ReactNode, label: string, bg: string, color: string, ring: string, onClick?: () => void }) {
+function MenuIcon({ icon, label, bg, color, ring, onClick }: { key?: string, icon: React.ReactNode, label: string, bg: string, color: string, ring: string, onClick?: () => void | Promise<void> | any }) {
   return (
     <div className="flex flex-col items-center gap-3 cursor-pointer group relative" onClick={onClick}>
       <div className={`w-[64px] h-[64px] sm:w-[72px] sm:h-[72px] rounded-[24px] flex items-center justify-center shadow-[0_8px_20px_rgba(0,0,0,0.05)] ${bg} ${color} transition-all duration-300 group-hover:scale-105 group-hover:-translate-y-1 group-active:scale-95 group-active:shadow-inner relative overflow-hidden backdrop-blur-xl border border-white/80 ring-1 ${ring}`}>

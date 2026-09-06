@@ -19,6 +19,8 @@ import Certificate from './pages/Certificate';
 import Status from './pages/Status';
 import Notifications from './pages/Notifications';
 import AnafilaktikKit from './pages/AnafilaktikKit';
+import InformedConsent from './pages/InformedConsent';
+import Schedule from './pages/Schedule';
 
 export default function App() {
   return (
@@ -34,6 +36,8 @@ export default function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/register" element={<Register />} />
             <Route path="/history" element={<History />} />
+            <Route path="/schedule" element={<Schedule />} />
+            <Route path="/informed-consent" element={<InformedConsent />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/certificate" element={<Certificate />} />

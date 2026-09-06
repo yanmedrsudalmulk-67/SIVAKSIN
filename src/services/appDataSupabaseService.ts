@@ -38,9 +38,14 @@ export interface UserProfileData {
 export interface AppSettingsData {
   id?: string;
   app_logo?: string;
+  doc_logo_left?: string;
+  doc_logo_right?: string;
   hospital_name?: string;
   phone?: string;
   address?: string;
+  eicv_stock?: number;
+  eicv_status?: string;
+  eicv_note?: string;
   updated_at?: string;
 }
 

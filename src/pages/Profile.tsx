@@ -5,13 +5,15 @@ import {
   FileText, ChevronLeft, Camera, Save, Phone, MapPin, Hash, 
   CheckCircle2, UploadCloud, Database, Cloud, Loader2, ExternalLink,
   Image as ImageIcon, Sparkles, RefreshCw, Check, AlertCircle, Trash2,
-  Syringe, Plus, Edit3, Search, SlidersHorizontal, X, ArrowUpRight
+  Syringe, Plus, Edit3, Search, SlidersHorizontal, X, ArrowUpRight,
+  Award, ArrowLeft
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { uploadFileToSupabase } from '../services/supabaseStorageService';
 import { saveAppSettingsToSupabase, fetchAppSettingsFromSupabase } from '../services/appDataSupabaseService';
 import SupabaseConfigModal from '../components/SupabaseConfigModal';
+import OfficialDocHeader, { SukabumiCoatOfArms, RsudAlMulkLogo } from '../components/OfficialDocHeader';
 
 export default function Profile() {
   const { 
@@ -23,6 +25,14 @@ export default function Profile() {
     refreshAllCloudData, 
     appLogo, 
     setAppLogo,
+    docLogoLeft,
+    docLogoRight,
+    setDocLogoLeft,
+    setDocLogoRight,
+    eicvStock,
+    eicvStatus,
+    eicvNote,
+    updateEicvAvailability,
     vaccines,
     addVaccine,
     updateVaccine,
@@ -30,7 +40,12 @@ export default function Profile() {
     updateVaccineStock
   } = useAppStore();
   const navigate = useNavigate();
-  const [currentView, setCurrentView] = useState<'main' | 'edit_profile' | 'support_data' | 'app_settings' | 'logo_settings' | 'vaccine_settings'>('main');
+  const [searchParams] = useSearchParams();
+  const initialViewParam = searchParams.get('view') as any;
+  const [currentView, setCurrentView] = useState<'main' | 'edit_profile' | 'support_data' | 'app_settings' | 'logo_settings' | 'doc_logo_settings' | 'vaccine_settings' | 'eicv_settings'>(
+    initialViewParam === 'doc_logo_settings' ? 'doc_logo_settings' : 
+    initialViewParam === 'eicv_settings' ? 'eicv_settings' : 'main'
+  );
 
   // Vaccine management states
   const [vaccineSearch, setVaccineSearch] = useState('');
@@ -78,6 +93,54 @@ export default function Profile() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const quickAvatarInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const leftDocLogoInputRef = useRef<HTMLInputElement>(null);
+  const rightDocLogoInputRef = useRef<HTMLInputElement>(null);
+
+  // Document Logos (Kop Surat: Kiri = Pemkot Sukabumi, Kanan = RSUD Al-Mulk)
+  const [leftDocLogoFile, setLeftDocLogoFile] = useState<File | null>(null);
+  const [leftDocLogoPreview, setLeftDocLogoPreview] = useState<string | null>(docLogoLeft || localStorage.getItem('sivaksin_doc_logo_left'));
+  const [isUploadingLeftDocLogo, setIsUploadingLeftDocLogo] = useState(false);
+
+  const [rightDocLogoFile, setRightDocLogoFile] = useState<File | null>(null);
+  const [rightDocLogoPreview, setRightDocLogoPreview] = useState<string | null>(docLogoRight || localStorage.getItem('sivaksin_doc_logo_right'));
+  const [isUploadingRightDocLogo, setIsUploadingRightDocLogo] = useState(false);
+
+  const [docLogoFeedback, setDocLogoFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    setLeftDocLogoPreview(docLogoLeft || localStorage.getItem('sivaksin_doc_logo_left'));
+  }, [docLogoLeft]);
+
+  useEffect(() => {
+    setRightDocLogoPreview(docLogoRight || localStorage.getItem('sivaksin_doc_logo_right'));
+  }, [docLogoRight]);
+
+  // E-ICV Availability Management States
+  const [inputEicvStock, setInputEicvStock] = useState<number>(eicvStock || 150);
+  const [inputEicvStatus, setInputEicvStatus] = useState<string>(eicvStatus || 'Tersedia');
+  const [inputEicvNote, setInputEicvNote] = useState<string>(eicvNote || 'Blanko Resmi E-ICV / Buku Kuning Siap Diterbitkan di RSUD Al-Mulk');
+  const [isSavingEicv, setIsSavingEicv] = useState(false);
+  const [eicvFeedback, setEicvFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    setInputEicvStock(eicvStock);
+    setInputEicvStatus(eicvStatus);
+    setInputEicvNote(eicvNote);
+  }, [eicvStock, eicvStatus, eicvNote]);
+
+  const handleSaveEicv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingEicv(true);
+    try {
+      await updateEicvAvailability(Number(inputEicvStock), inputEicvStatus, inputEicvNote.trim());
+      setEicvFeedback({ type: 'success', text: 'Ketersediaan E-ICV berhasil disimpan dan langsung aktif realtime di Halaman Utama!' });
+      setTimeout(() => setEicvFeedback(null), 4000);
+    } catch (err: any) {
+      setEicvFeedback({ type: 'error', text: 'Gagal memperbarui: ' + (err.message || 'Error') });
+    } finally {
+      setIsSavingEicv(false);
+    }
+  };
 
   useEffect(() => {
     fetchAppSettingsFromSupabase().then(({ settings }) => {
@@ -88,8 +151,28 @@ export default function Profile() {
         const saved = localStorage.getItem('app_logo');
         if (saved) setLogoPreview(saved);
       }
+      if (settings?.doc_logo_left) {
+        setLeftDocLogoPreview(settings.doc_logo_left);
+        setDocLogoLeft(settings.doc_logo_left);
+      } else {
+        const saved = localStorage.getItem('sivaksin_doc_logo_left');
+        if (saved) {
+          setLeftDocLogoPreview(saved);
+          setDocLogoLeft(saved);
+        }
+      }
+      if (settings?.doc_logo_right) {
+        setRightDocLogoPreview(settings.doc_logo_right);
+        setDocLogoRight(settings.doc_logo_right);
+      } else {
+        const saved = localStorage.getItem('sivaksin_doc_logo_right');
+        if (saved) {
+          setRightDocLogoPreview(saved);
+          setDocLogoRight(saved);
+        }
+      }
     });
-  }, [setAppLogo]);
+  }, [setAppLogo, setDocLogoLeft, setDocLogoRight]);
 
   const [supportData, setSupportData] = useState({
     nik: user?.nik || '',
@@ -250,6 +333,145 @@ export default function Profile() {
       }
       setLogoSuccessMsg('Logo dikembalikan ke standar default.');
       setTimeout(() => setLogoSuccessMsg(null), 3000);
+    }
+  };
+
+  // --- Handlers for Document Logos (Informed Consent Kop Surat) ---
+  const handleLeftDocLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Ukuran logo maksimal 5 MB.');
+        return;
+      }
+      setLeftDocLogoFile(file);
+      const objUrl = URL.createObjectURL(file);
+      setLeftDocLogoPreview(objUrl);
+    }
+  };
+
+  const handleApplyLeftDocLogo = async () => {
+    if (!leftDocLogoFile && !leftDocLogoPreview) return;
+    setIsUploadingLeftDocLogo(true);
+    setDocLogoFeedback(null);
+    try {
+      let finalUrl = leftDocLogoPreview;
+      if (leftDocLogoFile) {
+        if (isSupabaseConfigured) {
+          const res = await uploadFileToSupabase(leftDocLogoFile, 'assets', 'doc_logo_pemkot');
+          if (res.url) {
+            finalUrl = res.url;
+            await saveAppSettingsToSupabase({ doc_logo_left: res.url });
+          }
+        } else {
+          const reader = new FileReader();
+          await new Promise<void>((resolve) => {
+            reader.onload = (e) => {
+              if (e.target?.result) finalUrl = e.target.result as string;
+              resolve();
+            };
+            reader.readAsDataURL(leftDocLogoFile);
+          });
+        }
+      }
+      if (finalUrl) {
+        setDocLogoLeft(finalUrl);
+        setLeftDocLogoPreview(finalUrl);
+        setDocLogoFeedback({
+          type: 'success',
+          text: 'Logo Pemerintah Kota Sukabumi (Kiri Kop) berhasil disimpan dan diterapkan pada seluruh formulir resmi!'
+        });
+        setTimeout(() => setDocLogoFeedback(null), 4000);
+      }
+    } catch (err: any) {
+      setDocLogoFeedback({ type: 'error', text: 'Gagal menyimpan logo: ' + err.message });
+    } finally {
+      setIsUploadingLeftDocLogo(false);
+    }
+  };
+
+  const handleResetLeftDocLogo = async () => {
+    if (confirm('Kembalikan logo sebelah kiri (Pemerintah Kota Sukabumi) ke lambang resmi default?')) {
+      setDocLogoLeft(null);
+      setLeftDocLogoFile(null);
+      setLeftDocLogoPreview(null);
+      if (isSupabaseConfigured) {
+        await saveAppSettingsToSupabase({ doc_logo_left: '' });
+      }
+      setDocLogoFeedback({
+        type: 'success',
+        text: 'Logo Pemerintah Kota Sukabumi berhasil dikembalikan ke lambang resmi default.'
+      });
+      setTimeout(() => setDocLogoFeedback(null), 4000);
+    }
+  };
+
+  const handleRightDocLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Ukuran logo maksimal 5 MB.');
+        return;
+      }
+      setRightDocLogoFile(file);
+      const objUrl = URL.createObjectURL(file);
+      setRightDocLogoPreview(objUrl);
+    }
+  };
+
+  const handleApplyRightDocLogo = async () => {
+    if (!rightDocLogoFile && !rightDocLogoPreview) return;
+    setIsUploadingRightDocLogo(true);
+    setDocLogoFeedback(null);
+    try {
+      let finalUrl = rightDocLogoPreview;
+      if (rightDocLogoFile) {
+        if (isSupabaseConfigured) {
+          const res = await uploadFileToSupabase(rightDocLogoFile, 'assets', 'doc_logo_rsud');
+          if (res.url) {
+            finalUrl = res.url;
+            await saveAppSettingsToSupabase({ doc_logo_right: res.url });
+          }
+        } else {
+          const reader = new FileReader();
+          await new Promise<void>((resolve) => {
+            reader.onload = (e) => {
+              if (e.target?.result) finalUrl = e.target.result as string;
+              resolve();
+            };
+            reader.readAsDataURL(rightDocLogoFile);
+          });
+        }
+      }
+      if (finalUrl) {
+        setDocLogoRight(finalUrl);
+        setRightDocLogoPreview(finalUrl);
+        setDocLogoFeedback({
+          type: 'success',
+          text: 'Logo RSUD Al-Mulk (Kanan Kop) berhasil disimpan dan diterapkan pada seluruh formulir resmi!'
+        });
+        setTimeout(() => setDocLogoFeedback(null), 4000);
+      }
+    } catch (err: any) {
+      setDocLogoFeedback({ type: 'error', text: 'Gagal menyimpan logo: ' + err.message });
+    } finally {
+      setIsUploadingRightDocLogo(false);
+    }
+  };
+
+  const handleResetRightDocLogo = async () => {
+    if (confirm('Kembalikan logo sebelah kanan (RSUD Al-Mulk) ke logo resmi default?')) {
+      setDocLogoRight(null);
+      setRightDocLogoFile(null);
+      setRightDocLogoPreview(null);
+      if (isSupabaseConfigured) {
+        await saveAppSettingsToSupabase({ doc_logo_right: '' });
+      }
+      setDocLogoFeedback({
+        type: 'success',
+        text: 'Logo RSUD Al-Mulk berhasil dikembalikan ke logo resmi default.'
+      });
+      setTimeout(() => setDocLogoFeedback(null), 4000);
     }
   };
 
@@ -566,6 +788,310 @@ export default function Profile() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+
+  // VIEW: PENGATURAN LOGO FORMULIR RESMI (KOP SURAT)
+  const renderDocLogoSettings = () => (
+    <div className="bg-slate-50 min-h-screen relative w-full h-full flex flex-col font-sans">
+      <div className="bg-white px-4 py-4 sticky top-0 z-40 shadow-xs border-b border-slate-200">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 w-full">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setCurrentView('main')} 
+              className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="text-slate-700" />
+            </button>
+            <div>
+              <h1 className="font-black text-lg text-slate-900">Pengaturan Logo Formulir (Kop Surat)</h1>
+              <p className="text-xs text-slate-500">
+                Atur logo instansi resmi untuk menu Informed Consent & formulir medis
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/consent?doc=consent')}
+            className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <span>Buka Informed Consent</span>
+            <ArrowUpRight size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto w-full space-y-6">
+        {/* Feedback Alert */}
+        {docLogoFeedback && (
+          <div 
+            className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-2.5 shadow-xs animate-in fade-in slide-in-from-top-2 duration-300 ${
+              docLogoFeedback.type === 'success' 
+                ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+                : 'bg-rose-50 border border-rose-200 text-rose-800'
+            }`}
+          >
+            {docLogoFeedback.type === 'success' ? (
+              <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle size={18} className="text-rose-600 shrink-0" />
+            )}
+            <span>{docLogoFeedback.text}</span>
+          </div>
+        )}
+
+        {/* Informational Guidance */}
+        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-5 rounded-3xl shadow-md border border-blue-800 space-y-2">
+          <div className="flex items-center gap-2">
+            <Award className="text-amber-400" size={20} />
+            <h3 className="font-black text-sm uppercase tracking-wide text-cyan-200">
+              Standar Kop Surat Resmi Formulir Vaksinasi
+            </h3>
+          </div>
+          <p className="text-xs text-blue-100/90 leading-relaxed">
+            Sesuai regulasi administrasi instansi medis, tampilan kop surat formulir terdiri dari <strong>Logo Pemerintah Kota Sukabumi di sebelah kiri</strong> dan <strong>Logo Rumah Sakit RSUD Al-Mulk di sebelah kanan</strong>. Logo formulir ini disimpan terpisah dan <strong>tidak disamakan dengan logo aplikasi</strong> agar menjaga integritas dokumen kedinasan.
+          </p>
+        </div>
+
+        {/* 2-Column Upload Cards for Left (Pemkot) and Right (RSUD) Logos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* 1. KIRI: LOGO PEMERINTAH KOTA SUKABUMI */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="px-2.5 py-1 rounded-lg bg-blue-100 text-blue-800 font-black text-[11px] uppercase tracking-wider">
+                  Sebelah Kiri Kop
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium">Informed Consent</span>
+              </div>
+              <h4 className="font-black text-slate-900 text-base">
+                Logo Pemerintah Kota Sukabumi
+              </h4>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Akan ditampilkan pada sudut kiri atas kop surat seluruh formulir resmi.
+              </p>
+            </div>
+
+            {/* Preview Box */}
+            <div className="border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-2xl p-5 flex flex-col items-center justify-center text-center space-y-3">
+              <div className="w-24 h-28 bg-white rounded-2xl p-2 shadow-sm border border-slate-200 flex items-center justify-center overflow-hidden">
+                {leftDocLogoPreview ? (
+                  <img
+                    src={leftDocLogoPreview}
+                    alt="Logo Pemkot Sukabumi"
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <SukabumiCoatOfArms className="w-16 h-22 drop-shadow-xs" />
+                )}
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-slate-700">
+                  {leftDocLogoPreview ? 'Logo Kustom Aktif' : 'Default: Lambang Resmi Kota Sukabumi'}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">PNG / JPG / SVG (Maks. 5MB)</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => leftDocLogoInputRef.current?.click()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm active:scale-95 transition-all cursor-pointer"
+              >
+                <UploadCloud size={14} />
+                <span>Pilih File Logo Pemkot</span>
+              </button>
+
+              <input
+                type="file"
+                accept="image/*"
+                ref={leftDocLogoInputRef}
+                onChange={handleLeftDocLogoSelect}
+                className="hidden"
+              />
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleApplyLeftDocLogo}
+                disabled={isUploadingLeftDocLogo || (!leftDocLogoFile && !leftDocLogoPreview)}
+                className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isUploadingLeftDocLogo ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Check size={15} strokeWidth={2.5} />
+                )}
+                <span>{isUploadingLeftDocLogo ? 'Menyimpan...' : 'Terapkan Logo Pemkot'}</span>
+              </button>
+
+              {leftDocLogoPreview && (
+                <button
+                  type="button"
+                  onClick={handleResetLeftDocLogo}
+                  title="Kembalikan ke lambang default"
+                  className="px-3 h-11 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 font-bold text-xs rounded-xl flex items-center justify-center transition-all cursor-pointer border border-slate-200"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 2. KANAN: LOGO RUMAH SAKIT RSUD AL-MULK */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-black text-[11px] uppercase tracking-wider">
+                  Sebelah Kanan Kop
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium">Informed Consent</span>
+              </div>
+              <h4 className="font-black text-slate-900 text-base">
+                Logo Rumah Sakit RSUD Al-Mulk
+              </h4>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Akan ditampilkan pada sudut kanan atas kop surat seluruh formulir resmi.
+              </p>
+            </div>
+
+            {/* Preview Box */}
+            <div className="border-2 border-dashed border-emerald-200 bg-emerald-50/40 rounded-2xl p-5 flex flex-col items-center justify-center text-center space-y-3">
+              <div className="w-24 h-28 bg-white rounded-2xl p-2 shadow-sm border border-slate-200 flex items-center justify-center overflow-hidden">
+                {rightDocLogoPreview ? (
+                  <img
+                    src={rightDocLogoPreview}
+                    alt="Logo RSUD Al-Mulk"
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <RsudAlMulkLogo className="w-16 h-22 drop-shadow-xs" />
+                )}
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-slate-700">
+                  {rightDocLogoPreview ? 'Logo Kustom Aktif' : 'Default: Logo Resmi RSUD Al-Mulk'}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">PNG / JPG / SVG (Maks. 5MB)</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => rightDocLogoInputRef.current?.click()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm active:scale-95 transition-all cursor-pointer"
+              >
+                <UploadCloud size={14} />
+                <span>Pilih File Logo RSUD</span>
+              </button>
+
+              <input
+                type="file"
+                accept="image/*"
+                ref={rightDocLogoInputRef}
+                onChange={handleRightDocLogoSelect}
+                className="hidden"
+              />
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleApplyRightDocLogo}
+                disabled={isUploadingRightDocLogo || (!rightDocLogoFile && !rightDocLogoPreview)}
+                className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isUploadingRightDocLogo ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Check size={15} strokeWidth={2.5} />
+                )}
+                <span>{isUploadingRightDocLogo ? 'Menyimpan...' : 'Terapkan Logo RSUD'}</span>
+              </button>
+
+              {rightDocLogoPreview && (
+                <button
+                  type="button"
+                  onClick={handleResetRightDocLogo}
+                  title="Kembalikan ke logo default"
+                  className="px-3 h-11 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 font-bold text-xs rounded-xl flex items-center justify-center transition-all cursor-pointer border border-slate-200"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Live Simulation of Kop Surat with Arial Font */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-500" />
+                <span>Live Preview Kop Surat Resmi (Standar Font Arial)</span>
+              </h4>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Pratinjau tampilan dokumen Informed Consent dengan font Arial sesuai instruksi kedinasan.
+              </p>
+            </div>
+            <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold">
+              Font: Arial, Sans-Serif
+            </span>
+          </div>
+
+          {/* Document Preview Box */}
+          <div className="bg-slate-100 p-3 sm:p-6 rounded-2xl overflow-x-auto">
+            <div 
+              className="bg-white text-black p-6 sm:p-8 rounded-xl shadow-md border border-slate-200 max-w-2xl mx-auto"
+              style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
+            >
+              {/* Kop Surat */}
+              <OfficialDocHeader fontFamily="Arial, Helvetica, sans-serif" />
+
+              {/* Form Title */}
+              <div className="text-center my-4">
+                <h3 className="font-black text-[13px] sm:text-[14px] uppercase underline tracking-wider text-black">
+                  FORMULIR PERSETUJUAN / IZIN* TINDAKAN VAKSINASI
+                </h3>
+              </div>
+
+              {/* Sample snippet */}
+              <div className="text-[11px] text-slate-600 space-y-2 mt-3 leading-relaxed">
+                <p>Saya yang bertanda tangan di bawah ini :</p>
+                <div className="pl-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-24 text-slate-500">Nama</span>
+                    <span>:</span>
+                    <span className="font-semibold text-slate-800">Contoh Pasien Vaksinasi</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-24 text-slate-500">Alamat</span>
+                    <span>:</span>
+                    <span className="font-semibold text-slate-800">Kota Sukabumi, Jawa Barat</span>
+                  </div>
+                </div>
+                <p className="pt-2 text-slate-500 italic text-[10px]">
+                  *) Tampilan dokumen lengkap dengan font Arial dan kop surat resmi siap dicetak di menu Informed Consent.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={() => navigate('/consent?doc=consent')}
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md"
+            >
+              <span>Buka Formulir Informed Consent Lengkap</span>
+              <ArrowUpRight size={15} />
+            </button>
           </div>
         </div>
 
@@ -1349,11 +1875,218 @@ export default function Profile() {
     );
   };
 
+  const renderEicvSettings = () => {
+    return (
+      <div className="bg-slate-50 min-h-screen pb-16 font-sans">
+        {/* Header Bar */}
+        <div className="bg-white px-6 py-4 sticky top-0 z-40 shadow-xs border-b border-slate-200">
+          <div className="max-w-3xl mx-auto w-full flex items-center gap-3">
+            <button 
+              onClick={() => setCurrentView('main')} 
+              className="p-2 -ml-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="font-bold text-lg text-slate-900 leading-tight">
+                Pengaturan Ketersediaan E-ICV
+              </h1>
+              <p className="text-xs text-slate-500">
+                Kelola kuota blanko E-ICV & Buku Kuning realtime untuk Halaman Utama
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-6 space-y-6">
+          {/* Feedback Alert */}
+          {eicvFeedback && (
+            <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-bold border transition-all ${
+              eicvFeedback.type === 'success' 
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                : 'bg-rose-50 text-rose-800 border-rose-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} />
+                <span>{eicvFeedback.text}</span>
+              </div>
+              <button onClick={() => setEicvFeedback(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+          )}
+
+          {/* Live Preview Card */}
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Pratinjau Widget di Halaman Utama
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                Live Realtime
+              </span>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-900 via-slate-900 to-teal-950 text-white rounded-3xl p-6 shadow-xl border border-emerald-500/30 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+              
+              <div className="flex items-start justify-between gap-4 mb-4 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-400/30 shrink-0">
+                    <Award size={24} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black tracking-widest text-emerald-400 uppercase">
+                      Sertifikat Internasional
+                    </span>
+                    <h3 className="font-extrabold text-base text-white leading-tight">
+                      Ketersediaan Blanko E-ICV
+                    </h3>
+                  </div>
+                </div>
+
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-xs ${
+                  inputEicvStatus === 'Tersedia' 
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40' 
+                    : inputEicvStatus === 'Terbatas' 
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' 
+                    : 'bg-rose-500/20 text-rose-300 border-rose-400/40'
+                }`}>
+                  ● {inputEicvStatus}
+                </span>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 mb-3 relative z-10">
+                <div className="flex items-baseline justify-between mb-1">
+                  <span className="text-xs text-slate-300 font-medium">Stok Blanko Buku Kuning:</span>
+                  <span className="text-xl font-black text-emerald-300">{inputEicvStock} <span className="text-xs font-bold text-white">Buku</span></span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  {inputEicvNote || 'Blanko Resmi E-ICV / Buku Kuning Siap Diterbitkan di RSUD Al-Mulk'}
+                </p>
+              </div>
+
+              <div className="text-[10px] text-slate-400 flex items-center justify-between relative z-10 pt-1">
+                <span>UOBK RSUD Al-Mulk Kota Sukabumi</span>
+                <span className="text-emerald-400 font-semibold">Terkoneksi Kemenkes RI</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Pengaturan Ketersediaan E-ICV */}
+          <form onSubmit={handleSaveEicv} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-5">
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <SlidersHorizontal size={18} className="text-emerald-600" />
+              <span>Formulir Pengaturan Ketersediaan E-ICV</span>
+            </h3>
+
+            {/* Input Stok Blanko */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Jumlah Stok Blanko E-ICV / Buku Kuning (Buku)
+              </label>
+              <div className="relative">
+                <input 
+                  type="number"
+                  min="0"
+                  value={inputEicvStock}
+                  onChange={(e) => setInputEicvStock(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                  placeholder="Contoh: 150"
+                  required
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                  Buku / Blanko
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Masukkan jumlah sisa blanko fisik buku kuning yang tersedia di klinik vaksinasi.
+              </p>
+            </div>
+
+            {/* Pilihan Status Ketersediaan */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-2">
+                Status Ketersediaan untuk Pasien
+              </label>
+              <div className="grid grid-cols-3 gap-2.5">
+                {[
+                  { value: 'Tersedia', label: 'Tersedia (Ready)', color: 'border-emerald-500 text-emerald-700 bg-emerald-50/50' },
+                  { value: 'Terbatas', label: 'Terbatas (< 30)', color: 'border-amber-500 text-amber-700 bg-amber-50/50' },
+                  { value: 'Habis', label: 'Habis (Restock)', color: 'border-rose-500 text-rose-700 bg-rose-50/50' }
+                ].map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setInputEicvStatus(s.value)}
+                    className={`py-2.5 px-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                      inputEicvStatus === s.value 
+                        ? `${s.color} ring-2 ring-emerald-500/20 shadow-xs` 
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Input Catatan / Pengumuman */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Catatan / Pengumuman Ketersediaan E-ICV
+              </label>
+              <textarea 
+                rows={3}
+                value={inputEicvNote}
+                onChange={(e) => setInputEicvNote(e.target.value)}
+                placeholder="Contoh: Blanko Resmi E-ICV / Buku Kuning Siap Diterbitkan di RSUD Al-Mulk untuk Jamaah Umroh & Pelaut..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white leading-relaxed transition-all"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Teks ini akan langsung muncul di widget informasi Halaman Utama bagi seluruh pengguna.
+              </p>
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCurrentView('main')}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Kembali
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSavingEicv}
+                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSavingEicv ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Menyimpan ke Cloud...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    <span>Simpan Ketersediaan E-ICV</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   if (currentView === 'edit_profile') return renderEditProfile();
   if (currentView === 'logo_settings') return renderLogoSettings();
+  if (currentView === 'doc_logo_settings') return renderDocLogoSettings();
   if (currentView === 'support_data') return renderSupportData();
   if (currentView === 'app_settings') return renderAppSettings();
   if (currentView === 'vaccine_settings') return renderVaccineSettings();
+  if (currentView === 'eicv_settings') return renderEicvSettings();
 
   return (
     <div className="bg-slate-50 min-h-screen relative w-full h-full font-sans pb-12">
@@ -1507,6 +2240,18 @@ export default function Profile() {
               label="Pengaturan Logo Aplikasi" 
               sublabel="Atur logo untuk Welcome page, Login page, Header, & Sidebar"
               onClick={() => setCurrentView('logo_settings')} 
+            />
+            <MenuItem 
+              icon={<Award className="text-amber-500" />} 
+              label="Pengaturan Logo Formulir (Kop Surat)" 
+              sublabel="Atur Logo Pemkot Sukabumi (Kiri) & Logo RSUD Al-Mulk (Kanan) untuk Informed Consent"
+              onClick={() => setCurrentView('doc_logo_settings')} 
+            />
+            <MenuItem 
+              icon={<Award className="text-teal-600" />} 
+              label="Pengaturan Ketersediaan E-ICV" 
+              sublabel="Atur kuota blanko E-ICV & status ketersediaan realtime untuk Halaman Utama"
+              onClick={() => setCurrentView('eicv_settings')} 
             />
             <MenuItem 
               icon={<FileText className="text-indigo-600" />} 

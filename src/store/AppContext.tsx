@@ -12,7 +12,8 @@ import {
   deleteBookingInSupabase,
   fetchUserProfileFromSupabase,
   upsertUserProfileToSupabase,
-  fetchAppSettingsFromSupabase
+  fetchAppSettingsFromSupabase,
+  saveAppSettingsToSupabase
 } from '../services/appDataSupabaseService';
 
 type UserRole = 'guest' | 'user' | 'admin';
@@ -63,12 +64,20 @@ interface AppState {
   isSupabaseOnline: boolean;
   isLoadingCloud: boolean;
   appLogo: string | null;
+  docLogoLeft: string | null;
+  docLogoRight: string | null;
+  eicvStock: number;
+  eicvStatus: string;
+  eicvNote: string;
 }
 
 interface AppContextType extends AppState {
   setRole: (role: UserRole) => void;
   setUser: (user: any) => void;
-  setAppLogo: (logo: string | null) => void;
+  setAppLogo: (logo: string | null) => void | Promise<void>;
+  setDocLogoLeft: (logo: string | null) => void | Promise<void>;
+  setDocLogoRight: (logo: string | null) => void | Promise<void>;
+  updateEicvAvailability: (stock: number, status: string, note?: string) => Promise<{ success: boolean; error?: string }>;
   updateUser: (updates: any) => Promise<void>;
   addBooking: (booking: Booking) => Promise<void>;
   updateBookingStatus: (id: string, status: Booking['status']) => Promise<void>;
@@ -88,6 +97,7 @@ interface AppContextType extends AppState {
   requestDocumentRevision: (bookingId: string, docType: 'ktp' | 'passport' | 'all', instructionMessage: string) => Promise<void>;
   verifyDocumentApproval: (bookingId: string) => Promise<void>;
   reuploadDocument: (bookingId: string, docType: 'ktp' | 'passport', fileUrl: string, fileName?: string) => Promise<void>;
+  uploadOfficialEicv: (bookingId: string, fileUrl: string, fileName?: string) => Promise<void>;
 }
 
 const defaultVaccines: Vaccine[] = [
@@ -188,11 +198,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [users, setUsersState] = useState<any[]>(() => loadStorage('sivaksin_users', defaultUsers));
   const [notifications, setNotificationsState] = useState<AppNotification[]>(() => loadStorage('sivaksin_notifications', defaultNotifications));
   const [appLogo, setAppLogoState] = useState<string | null>(() => localStorage.getItem('app_logo') || null);
+  const [docLogoLeft, setDocLogoLeftState] = useState<string | null>(() => localStorage.getItem('sivaksin_doc_logo_left') || null);
+  const [docLogoRight, setDocLogoRightState] = useState<string | null>(() => localStorage.getItem('sivaksin_doc_logo_right') || null);
+  const [eicvStock, setEicvStockState] = useState<number>(() => {
+    const saved = localStorage.getItem('sivaksin_eicv_stock');
+    return saved !== null ? parseInt(saved, 10) : 150;
+  });
+  const [eicvStatus, setEicvStatusState] = useState<string>(() => {
+    return localStorage.getItem('sivaksin_eicv_status') || 'Tersedia';
+  });
+  const [eicvNote, setEicvNoteState] = useState<string>(() => {
+    return localStorage.getItem('sivaksin_eicv_note') || 'Blanko Resmi E-ICV / Buku Kuning Siap Diterbitkan di RSUD Al-Mulk';
+  });
   const [isSupabaseOnline, setIsSupabaseOnline] = useState<boolean>(isSupabaseConfigured);
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [, setIsLoading] = useState(true);
 
-  const setAppLogo = (newLogo: string | null) => {
+  const setAppLogo = async (newLogo: string | null) => {
     setAppLogoState(newLogo);
     if (newLogo) {
       localStorage.setItem('app_logo', newLogo);
@@ -200,17 +222,107 @@ export function AppProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('app_logo');
     }
     window.dispatchEvent(new Event('app_logo_updated'));
+
+    if (isSupabaseConfigured) {
+      try {
+        await saveAppSettingsToSupabase({ app_logo: newLogo || '' });
+      } catch (err: any) {
+        console.warn('Sync app logo to Supabase error:', err);
+      }
+    }
+  };
+
+  const setDocLogoLeft = async (newLogo: string | null) => {
+    setDocLogoLeftState(newLogo);
+    if (newLogo) {
+      localStorage.setItem('sivaksin_doc_logo_left', newLogo);
+    } else {
+      localStorage.removeItem('sivaksin_doc_logo_left');
+    }
+    window.dispatchEvent(new Event('sivaksin_doc_logos_updated'));
+
+    if (isSupabaseConfigured) {
+      try {
+        await saveAppSettingsToSupabase({ doc_logo_left: newLogo || '' });
+      } catch (err: any) {
+        console.warn('Sync doc logo left to Supabase error:', err);
+      }
+    }
+  };
+
+  const setDocLogoRight = async (newLogo: string | null) => {
+    setDocLogoRightState(newLogo);
+    if (newLogo) {
+      localStorage.setItem('sivaksin_doc_logo_right', newLogo);
+    } else {
+      localStorage.removeItem('sivaksin_doc_logo_right');
+    }
+    window.dispatchEvent(new Event('sivaksin_doc_logos_updated'));
+
+    if (isSupabaseConfigured) {
+      try {
+        await saveAppSettingsToSupabase({ doc_logo_right: newLogo || '' });
+      } catch (err: any) {
+        console.warn('Sync doc logo right to Supabase error:', err);
+      }
+    }
+  };
+
+  const updateEicvAvailability = async (newStock: number, newStatus: string, newNote?: string) => {
+    setEicvStockState(newStock);
+    setEicvStatusState(newStatus);
+    if (newNote !== undefined) setEicvNoteState(newNote);
+
+    localStorage.setItem('sivaksin_eicv_stock', newStock.toString());
+    localStorage.setItem('sivaksin_eicv_status', newStatus);
+    if (newNote !== undefined) localStorage.setItem('sivaksin_eicv_note', newNote);
+
+    window.dispatchEvent(new Event('sivaksin_eicv_updated'));
+
+    if (isSupabaseConfigured) {
+      try {
+        await saveAppSettingsToSupabase({
+          eicv_stock: newStock,
+          eicv_status: newStatus,
+          eicv_note: newNote
+        });
+      } catch (err: any) {
+        console.warn('Sync eicv availability to Supabase error:', err);
+      }
+    }
+    return { success: true };
   };
 
   useEffect(() => {
     const handleLogoUpdate = () => {
       setAppLogoState(localStorage.getItem('app_logo') || null);
     };
+    const handleDocLogosUpdate = () => {
+      setDocLogoLeftState(localStorage.getItem('sivaksin_doc_logo_left') || null);
+      setDocLogoRightState(localStorage.getItem('sivaksin_doc_logo_right') || null);
+    };
+    const handleEicvUpdate = () => {
+      const s = localStorage.getItem('sivaksin_eicv_stock');
+      if (s !== null) setEicvStockState(parseInt(s, 10));
+      const st = localStorage.getItem('sivaksin_eicv_status');
+      if (st) setEicvStatusState(st);
+      const n = localStorage.getItem('sivaksin_eicv_note');
+      if (n) setEicvNoteState(n);
+    };
+
     window.addEventListener('app_logo_updated', handleLogoUpdate);
+    window.addEventListener('sivaksin_doc_logos_updated', handleDocLogosUpdate);
+    window.addEventListener('sivaksin_eicv_updated', handleEicvUpdate);
     window.addEventListener('storage', handleLogoUpdate);
+    window.addEventListener('storage', handleDocLogosUpdate);
+    window.addEventListener('storage', handleEicvUpdate);
     return () => {
       window.removeEventListener('app_logo_updated', handleLogoUpdate);
+      window.removeEventListener('sivaksin_doc_logos_updated', handleDocLogosUpdate);
+      window.removeEventListener('sivaksin_eicv_updated', handleEicvUpdate);
       window.removeEventListener('storage', handleLogoUpdate);
+      window.removeEventListener('storage', handleDocLogosUpdate);
+      window.removeEventListener('storage', handleEicvUpdate);
     };
   }, []);
 
@@ -400,6 +512,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const uploadOfficialEicv = async (bookingId: string, fileUrl: string, fileName?: string) => {
+    setBookings(prev => prev.map(b => {
+      if (b.id === bookingId) {
+        const updatedPatient = {
+          ...(b.patient || {}),
+          e_icv_url: fileUrl,
+          e_icv_file_name: fileName || 'Sertifikat_E-ICV_Resmi.pdf',
+          e_icv_status: 'diterbitkan',
+          e_icv_issued_at: new Date().toISOString()
+        };
+        const updatedBooking: Booking = { 
+          ...b, 
+          status: 'selesai', 
+          patient: updatedPatient 
+        };
+
+        if (isSupabaseConfigured) {
+          supabase.from('bookings').update({ 
+            status: 'selesai',
+            patient: updatedPatient 
+          }).eq('id', bookingId).then(
+            () => {},
+            (err) => console.warn('Sync E-ICV upload to Supabase note:', err)
+          );
+        }
+        return updatedBooking;
+      }
+      return b;
+    }));
+
+    const currentBooking = bookings.find(b => b.id === bookingId);
+    const targetUserId = currentBooking?.user_id || currentBooking?.patient?.nik || currentBooking?.patient?.email;
+
+    addNotification({
+      userId: targetUserId,
+      bookingId: bookingId,
+      type: 'general',
+      title: 'Sertifikat E-ICV Resmi Telah Diterbitkan',
+      message: `Sertifikat Vaksinasi Internasional (E-ICV) resmi Anda telah diterbitkan oleh Tim Medis UOBK RSUD Al-Mulk. Anda dapat melihat, mengunduh, atau mencetaknya melalui menu E-ICV.`,
+      adminName: 'Admin RSUD Al-Mulk',
+      actionUrl: '/certificate'
+    });
+  };
+
   // Sync All Data from Supabase Cloud
   const refreshAllCloudData = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -432,8 +588,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // 3. Fetch App Settings (Logo, info)
       const { settings } = await fetchAppSettingsFromSupabase();
-      if (settings?.app_logo) {
-        localStorage.setItem('app_logo', settings.app_logo);
+      if (settings) {
+        if (settings.app_logo !== undefined) {
+          if (settings.app_logo) {
+            localStorage.setItem('app_logo', settings.app_logo);
+            setAppLogoState(settings.app_logo);
+          } else {
+            localStorage.removeItem('app_logo');
+            setAppLogoState(null);
+          }
+        }
+        if (settings.doc_logo_left !== undefined) {
+          if (settings.doc_logo_left) {
+            localStorage.setItem('sivaksin_doc_logo_left', settings.doc_logo_left);
+            setDocLogoLeftState(settings.doc_logo_left);
+          } else {
+            localStorage.removeItem('sivaksin_doc_logo_left');
+            setDocLogoLeftState(null);
+          }
+        }
+        if (settings.doc_logo_right !== undefined) {
+          if (settings.doc_logo_right) {
+            localStorage.setItem('sivaksin_doc_logo_right', settings.doc_logo_right);
+            setDocLogoRightState(settings.doc_logo_right);
+          } else {
+            localStorage.removeItem('sivaksin_doc_logo_right');
+            setDocLogoRightState(null);
+          }
+        }
+        if (settings.eicv_stock !== undefined && settings.eicv_stock !== null) {
+          localStorage.setItem('sivaksin_eicv_stock', settings.eicv_stock.toString());
+          setEicvStockState(settings.eicv_stock);
+        }
+        if (settings.eicv_status) {
+          localStorage.setItem('sivaksin_eicv_status', settings.eicv_status);
+          setEicvStatusState(settings.eicv_status);
+        }
+        if (settings.eicv_note) {
+          localStorage.setItem('sivaksin_eicv_note', settings.eicv_note);
+          setEicvNoteState(settings.eicv_note);
+        }
       }
 
       // 4. Fetch User Profile if logged in
@@ -853,9 +1047,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isSupabaseOnline,
         isLoadingCloud,
         appLogo,
+        docLogoLeft,
+        docLogoRight,
+        eicvStock,
+        eicvStatus,
+        eicvNote,
         setRole,
         setUser,
         setAppLogo,
+        setDocLogoLeft,
+        setDocLogoRight,
+        updateEicvAvailability,
         updateUser,
         addBooking,
         updateBookingStatus,
@@ -874,7 +1076,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteNotification,
         requestDocumentRevision,
         verifyDocumentApproval,
-        reuploadDocument
+        reuploadDocument,
+        uploadOfficialEicv
       }}
     >
       {children}
