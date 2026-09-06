@@ -22,8 +22,7 @@ export default function Welcome() {
     <div className="min-h-screen bg-slate-50 flex flex-col relative overflow-hidden font-sans">
       {/* Top Blue Header matching dashboard */}
       <div className="absolute top-0 inset-x-0 h-[60%] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 rounded-b-[60px] shadow-xl overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -right-32 w-80 h-80 bg-cyan-400 rounded-full mix-blend-screen filter blur-3xl opacity-30"></div>
-        <div className="absolute bottom-10 -left-20 w-60 h-60 bg-blue-500 rounded-full mix-blend-screen filter blur-3xl opacity-20"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/30 via-blue-500/20 to-transparent mix-blend-screen filter blur-[100px] pointer-events-none"></div>
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
       </div>
 

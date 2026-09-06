@@ -50,9 +50,8 @@ export default function Login() {
       {/* Header Hero Premium */}
       <div className="absolute top-0 inset-x-0 h-[320px] sm:h-[350px] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 overflow-hidden pointer-events-none z-0">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
-        {/* Soft Glow */}
-        <div className="absolute -top-32 -right-32 w-[500px] h-[500px] bg-cyan-400 rounded-full mix-blend-screen filter blur-[120px] opacity-40"></div>
-        <div className="absolute top-20 -left-20 w-[400px] h-[400px] bg-blue-500 rounded-full mix-blend-screen filter blur-[100px] opacity-30"></div>
+        {/* Soft Seamless Gradient Overlay without circular lines */}
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/30 via-blue-500/20 to-transparent mix-blend-screen filter blur-[100px] pointer-events-none"></div>
         
         {/* Transparent background icons */}
         <motion.div animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="absolute top-1/4 right-8 text-white/10">

@@ -214,7 +214,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-50 pb-20 font-sans">
       {/* Background Header Premium Version B */}
-      <div className="absolute top-0 inset-x-0 h-[300px] md:h-[320px] bg-gradient-to-br from-[#0F3DDE] via-[#2563EB] to-[#06B6D4] overflow-hidden z-0 shadow-xl rounded-b-[50px] md:rounded-b-[40px]">
+      <div className="absolute top-0 inset-x-0 h-[300px] md:h-[355px] lg:h-[385px] landscape:h-[345px] md:landscape:h-[375px] bg-gradient-to-br from-[#0F3DDE] via-[#2563EB] to-[#06B6D4] overflow-hidden z-0 shadow-xl rounded-b-[50px] md:rounded-b-[40px]">
         {/* World map transparent pattern */}
         <div className="absolute top-0 right-0 w-full h-[150%] opacity-[0.08] bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg')] bg-no-repeat bg-[center_top_-20px] bg-cover mix-blend-screen pointer-events-none"></div>
         
@@ -230,8 +230,7 @@ export default function Home() {
         </div>
         
         {/* Glow Effects (Soft Gradients) */}
-        <div className="absolute -top-10 -right-10 w-[120%] h-[120%] bg-cyan-400 mix-blend-screen filter blur-[120px] opacity-25 pointer-events-none animate-pulse"></div>
-        <div className="absolute top-20 -left-20 w-[100%] h-[100%] bg-blue-500 mix-blend-screen filter blur-[140px] opacity-20 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/25 via-blue-500/20 to-transparent mix-blend-screen filter blur-[100px] pointer-events-none"></div>
 
         {/* Shimmer Effect */}
         <div className="absolute inset-x-0 top-0 h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 translate-x-[-100%] animate-[shimmer_8s_infinite]"></div>
@@ -284,7 +283,7 @@ export default function Home() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`mt-7 rounded-[30px] p-5 flex items-center justify-between relative overflow-hidden group shadow-2xl transition-all ${
+          className={`mt-7 rounded-[30px] p-5 md:py-8 md:px-8 md:min-h-[165px] lg:py-10 lg:px-9 lg:min-h-[190px] landscape:py-7 landscape:px-7 landscape:min-h-[155px] md:landscape:py-9 md:landscape:min-h-[185px] flex items-center justify-between relative overflow-hidden group shadow-2xl transition-all ${
             currentHeroBg 
               ? 'border-none' 
               : 'bg-white/20 backdrop-blur-xl border border-white/30'
@@ -297,15 +296,15 @@ export default function Home() {
             } : undefined
           }
         >
-          <div className="relative z-10 flex-1 pt-4 sm:pt-5 pb-1">
-             <h3 className="font-['Poppins',sans-serif] font-bold text-white text-[18px] mb-1.5 leading-tight tracking-tight drop-shadow-md">Lindungi Diri Anda</h3>
-             <div className="font-['Poppins',sans-serif] font-normal text-white/95 text-[11px] leading-tight space-y-0.5 drop-shadow-sm">
+          <div className="relative z-10 flex-1 pt-4 sm:pt-5 pb-1 md:pt-6 md:pb-4 lg:pt-8 lg:pb-5 landscape:pt-5 landscape:pb-3 md:landscape:pt-7 md:landscape:pb-4">
+             <h3 className="font-['Poppins',sans-serif] font-bold text-white text-[18px] md:text-[22px] lg:text-[24px] landscape:text-[20px] md:landscape:text-[22px] mb-1.5 md:mb-2.5 leading-tight tracking-tight drop-shadow-md">Lindungi Diri Anda</h3>
+             <div className="font-['Poppins',sans-serif] font-normal text-white/95 text-[11px] md:text-[13px] lg:text-[14.5px] landscape:text-[12px] md:landscape:text-[13.5px] leading-tight space-y-0.5 md:space-y-1.5 drop-shadow-sm">
                 <p>Dengan vaksinasi lengkap</p>
                 <p>Perjalanan lebih tenang dan aman</p>
              </div>
           </div>
           
-          <div className="relative w-28 h-28 flex items-center justify-center overflow-visible shrink-0">
+          <div className="relative w-28 h-28 md:w-36 md:h-36 lg:w-40 lg:h-40 landscape:w-32 landscape:h-32 md:landscape:w-36 md:landscape:h-36 flex items-center justify-center overflow-visible shrink-0">
              <div className="absolute inset-0 bg-blue-400/30 blur-2xl rounded-full animate-pulse scale-150"></div>
              <motion.div 
                animate={{ y: [0, -8, 0], rotate: [0, 4, 0] }}
@@ -314,16 +313,16 @@ export default function Home() {
              >
                 <div className="relative flex items-center justify-center">
                   {/* Background Elements */}
-                  <div className="bg-white/10 rounded-full p-4 backdrop-blur-md border border-white/30 shadow-2xl relative overflow-hidden">
-                    <Syringe size={48} className="text-white drop-shadow-2xl opacity-80" strokeWidth={1.5} />
+                  <div className="bg-white/10 rounded-full p-4 md:p-5 lg:p-6 landscape:p-4.5 md:landscape:p-5 backdrop-blur-md border border-white/30 shadow-2xl relative overflow-hidden">
+                    <Syringe size={48} className="text-white drop-shadow-2xl opacity-80 md:w-[54px] md:h-[54px] lg:w-[60px] lg:h-[60px] landscape:w-[50px] landscape:h-[50px]" strokeWidth={1.5} />
                   </div>
                   
                   <motion.div 
                     animate={{ scale: [1, 1.1, 1] }}
                     transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute -bottom-3 -right-3 w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center border-2 border-white shadow-xl rotate-[12deg] z-20"
+                    className="absolute -bottom-3 -right-3 w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 landscape:w-13 landscape:h-13 bg-emerald-500 rounded-2xl flex items-center justify-center border-2 border-white shadow-xl rotate-[12deg] z-20"
                   >
-                    <ShieldCheck size={26} className="text-white" strokeWidth={2.5} />
+                    <ShieldCheck size={26} className="text-white md:w-[28px] md:h-[28px] lg:w-[32px] lg:h-[32px]" strokeWidth={2.5} />
                   </motion.div>
                 </div>
              </motion.div>
@@ -623,10 +622,9 @@ export default function Home() {
             </div>
 
             {/* Widget Ketersediaan E-ICV Realtime */}
-            <div className="bg-gradient-to-br from-[#0F3DDE] via-[#2563EB] to-[#06B6D4] text-white rounded-[28px] p-5 shadow-lg border border-blue-400/30 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-[#0F3DDE] via-[#2563EB] to-[#06B6D4] text-white rounded-[28px] p-5 shadow-lg relative overflow-hidden border-none">
               {/* Glow Effects (Soft Gradients Light) */}
-              <div className="absolute -top-10 -right-10 w-[120%] h-[120%] bg-cyan-400 mix-blend-screen filter blur-[90px] opacity-25 pointer-events-none animate-pulse"></div>
-              <div className="absolute top-10 -left-10 w-[100%] h-[100%] bg-blue-400 mix-blend-screen filter blur-[100px] opacity-20 pointer-events-none"></div>
+              <div className="absolute inset-0 bg-gradient-to-tr from-cyan-400/25 via-transparent to-blue-300/20 mix-blend-screen filter blur-[80px] pointer-events-none"></div>
               
               <div className="flex items-center justify-between mb-3 relative z-10">
                 <div className="flex items-center gap-2.5">
