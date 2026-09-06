@@ -291,9 +291,15 @@ export default function Profile() {
       if (logoFile) {
         if (isSupabaseConfigured) {
           const uploadResult = await uploadFileToSupabase(logoFile, 'assets', 'app_logo');
+          if (uploadResult.error && !uploadResult.url) {
+            throw new Error(uploadResult.error);
+          }
           if (uploadResult.url) {
             finalLogoUrl = uploadResult.url;
-            await saveAppSettingsToSupabase({ app_logo: uploadResult.url });
+            const saveResult = await saveAppSettingsToSupabase({ app_logo: uploadResult.url });
+            if (!saveResult.success) {
+               throw new Error(saveResult.error || "Gagal menyimpan pengaturan aplikasi.");
+            }
           }
         } else {
           // Read base64
@@ -325,14 +331,19 @@ export default function Profile() {
 
   const handleResetLogo = async () => {
     if (confirm('Kembalikan logo aplikasi ke logo standar default?')) {
-      setAppLogo(null);
-      setLogoPreview(null);
-      setLogoFile(null);
-      if (isSupabaseConfigured) {
-        await saveAppSettingsToSupabase({ app_logo: null });
+      try {
+        if (isSupabaseConfigured) {
+          const res = await saveAppSettingsToSupabase({ app_logo: null });
+          if (!res.success) throw new Error(res.error || "Gagal reset logo");
+        }
+        setAppLogo(null);
+        setLogoPreview(null);
+        setLogoFile(null);
+        setLogoSuccessMsg('Logo dikembalikan ke standar default.');
+        setTimeout(() => setLogoSuccessMsg(null), 3000);
+      } catch (err: any) {
+        alert("Gagal reset logo: " + err.message);
       }
-      setLogoSuccessMsg('Logo dikembalikan ke standar default.');
-      setTimeout(() => setLogoSuccessMsg(null), 3000);
     }
   };
 
@@ -359,9 +370,15 @@ export default function Profile() {
       if (leftDocLogoFile) {
         if (isSupabaseConfigured) {
           const res = await uploadFileToSupabase(leftDocLogoFile, 'assets', 'doc_logo_pemkot');
+          if (res.error && !res.url) {
+            throw new Error(res.error);
+          }
           if (res.url) {
             finalUrl = res.url;
-            await saveAppSettingsToSupabase({ doc_logo_left: res.url });
+            const saveResult = await saveAppSettingsToSupabase({ doc_logo_left: res.url });
+            if (!saveResult.success) {
+               throw new Error(saveResult.error || "Gagal menyimpan ke tabel app_settings");
+            }
           }
         } else {
           const reader = new FileReader();
@@ -392,17 +409,22 @@ export default function Profile() {
 
   const handleResetLeftDocLogo = async () => {
     if (confirm('Kembalikan logo sebelah kiri (Pemerintah Kota Sukabumi) ke lambang resmi default?')) {
-      setDocLogoLeft(null);
-      setLeftDocLogoFile(null);
-      setLeftDocLogoPreview(null);
-      if (isSupabaseConfigured) {
-        await saveAppSettingsToSupabase({ doc_logo_left: '' });
+      try {
+        if (isSupabaseConfigured) {
+          const res = await saveAppSettingsToSupabase({ doc_logo_left: '' });
+          if (!res.success) throw new Error(res.error || "Gagal reset logo");
+        }
+        setDocLogoLeft(null);
+        setLeftDocLogoFile(null);
+        setLeftDocLogoPreview(null);
+        setDocLogoFeedback({
+          type: 'success',
+          text: 'Logo Pemerintah Kota Sukabumi berhasil dikembalikan ke lambang resmi default.'
+        });
+        setTimeout(() => setDocLogoFeedback(null), 4000);
+      } catch (err: any) {
+        setDocLogoFeedback({ type: 'error', text: 'Gagal reset logo: ' + err.message });
       }
-      setDocLogoFeedback({
-        type: 'success',
-        text: 'Logo Pemerintah Kota Sukabumi berhasil dikembalikan ke lambang resmi default.'
-      });
-      setTimeout(() => setDocLogoFeedback(null), 4000);
     }
   };
 
@@ -428,9 +450,15 @@ export default function Profile() {
       if (rightDocLogoFile) {
         if (isSupabaseConfigured) {
           const res = await uploadFileToSupabase(rightDocLogoFile, 'assets', 'doc_logo_rsud');
+          if (res.error && !res.url) {
+            throw new Error(res.error);
+          }
           if (res.url) {
             finalUrl = res.url;
-            await saveAppSettingsToSupabase({ doc_logo_right: res.url });
+            const saveResult = await saveAppSettingsToSupabase({ doc_logo_right: res.url });
+            if (!saveResult.success) {
+               throw new Error(saveResult.error || "Gagal menyimpan ke tabel app_settings");
+            }
           }
         } else {
           const reader = new FileReader();
@@ -461,17 +489,22 @@ export default function Profile() {
 
   const handleResetRightDocLogo = async () => {
     if (confirm('Kembalikan logo sebelah kanan (RSUD Al-Mulk) ke logo resmi default?')) {
-      setDocLogoRight(null);
-      setRightDocLogoFile(null);
-      setRightDocLogoPreview(null);
-      if (isSupabaseConfigured) {
-        await saveAppSettingsToSupabase({ doc_logo_right: '' });
+      try {
+        if (isSupabaseConfigured) {
+          const res = await saveAppSettingsToSupabase({ doc_logo_right: '' });
+          if (!res.success) throw new Error(res.error || "Gagal reset logo");
+        }
+        setDocLogoRight(null);
+        setRightDocLogoFile(null);
+        setRightDocLogoPreview(null);
+        setDocLogoFeedback({
+          type: 'success',
+          text: 'Logo RSUD Al-Mulk berhasil dikembalikan ke logo resmi default.'
+        });
+        setTimeout(() => setDocLogoFeedback(null), 4000);
+      } catch (err: any) {
+        setDocLogoFeedback({ type: 'error', text: 'Gagal reset logo: ' + err.message });
       }
-      setDocLogoFeedback({
-        type: 'success',
-        text: 'Logo RSUD Al-Mulk berhasil dikembalikan ke logo resmi default.'
-      });
-      setTimeout(() => setDocLogoFeedback(null), 4000);
     }
   };
 

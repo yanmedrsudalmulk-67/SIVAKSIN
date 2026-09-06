@@ -394,14 +394,22 @@ export const fetchAppSettingsFromSupabase = async (): Promise<{
   if (!isSupabaseConfigured) return { settings: null, error: 'Supabase tidak aktif' };
 
   try {
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('*')
-      .eq('id', 'main_config')
-      .maybeSingle();
-
-    if (error) return { settings: null, error: formatSupabaseErrorMessage(error) };
-    return { settings: data as AppSettingsData, error: null };
+    // Gunakan storage 'assets' untuk menyimpan settings agar tidak butuh migrasi SQL
+    const { data, error } = await supabase.storage.from('assets').download('app_settings/main_config.json');
+    if (error) {
+      if (error.message.includes('not found') || error.message.includes('Object not found') || error.statusCode === '404') {
+        return { settings: null, error: null };
+      }
+      return { settings: null, error: formatSupabaseErrorMessage(error) };
+    }
+    
+    if (data) {
+      const text = await data.text();
+      const settings = JSON.parse(text) as AppSettingsData;
+      return { settings, error: null };
+    }
+    
+    return { settings: null, error: null };
   } catch (err: any) {
     return { settings: null, error: formatSupabaseErrorMessage(err) };
   }
@@ -413,13 +421,36 @@ export const saveAppSettingsToSupabase = async (
   if (!isSupabaseConfigured) return { success: true, error: null };
 
   try {
+    // Ambil setting sebelumnya terlebih dahulu
+    let existingSettings: AppSettingsData = {};
+    const { settings: currentSettings } = await fetchAppSettingsFromSupabase();
+    if (currentSettings) {
+      existingSettings = currentSettings;
+    }
+
     const payload = {
-      id: 'main_config',
+      ...existingSettings,
       ...settings,
+      id: 'main_config',
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase.from('app_settings').upsert(payload, { onConflict: 'id' });
+    const file = new File([JSON.stringify(payload)], 'main_config.json', { type: 'application/json' });
+
+    let { error } = await supabase.storage.from('assets').upload('app_settings/main_config.json', file, {
+      cacheControl: '3600',
+      upsert: true
+    });
+    
+    if (error && (error.message?.includes('Bucket not found') || error.statusCode === '404')) {
+      await supabase.storage.createBucket('assets', { public: true });
+      const retry = await supabase.storage.from('assets').upload('app_settings/main_config.json', file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+      error = retry.error;
+    }
+
     if (error) return { success: false, error: formatSupabaseErrorMessage(error) };
     return { success: true, error: null };
   } catch (err: any) {
