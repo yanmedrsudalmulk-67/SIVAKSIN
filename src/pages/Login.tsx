@@ -46,9 +46,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col relative font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center relative font-sans overflow-x-hidden py-10 sm:py-14">
       {/* Header Hero Premium */}
-      <div className="absolute top-0 inset-x-0 h-[320px] sm:h-[350px] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 overflow-hidden pointer-events-none z-0">
+      <div className="absolute top-0 inset-x-0 h-[380px] sm:h-[420px] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 overflow-hidden pointer-events-none z-0">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
         {/* Soft Seamless Gradient Overlay without circular lines */}
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/30 via-blue-500/20 to-transparent mix-blend-screen filter blur-[100px] pointer-events-none"></div>
@@ -75,16 +75,16 @@ export default function Login() {
         </div>
       </div>
 
-      <div className="w-full max-w-md mx-auto relative z-10 px-5 pt-6 sm:pt-7 pb-8 flex flex-col items-center">
+      <div className="w-full max-w-md mx-auto relative z-10 px-5 flex flex-col items-center my-auto">
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-5 sm:mb-6"
+          className="text-center mb-6 sm:mb-7"
         >
           <motion.div 
             animate={{ y: [0, -8, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="relative w-20 h-20 bg-white mx-auto flex items-center justify-center mb-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[20px]"
+            className="relative w-20 h-20 bg-white mx-auto flex items-center justify-center mb-3 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[20px]"
           >
             {logoUrl ? (
                <img src={logoUrl} alt="Logo" className="w-full h-full object-cover rounded-[20px] z-10" />
@@ -93,14 +93,14 @@ export default function Login() {
             )}
           </motion.div>
           <h1 className="font-['League_Spartan',sans-serif] text-3xl font-black text-white tracking-widest drop-shadow-md">SIVAKSIN</h1>
-          <p className="text-cyan-100 text-[11px] font-bold tracking-widest uppercase mt-0.5 drop-shadow-sm opacity-90">UOBK RSUD AL-MULK KOTA SUKABUMI</p>
+          <p className="text-cyan-100 text-[11px] font-bold tracking-widest uppercase mt-1 drop-shadow-sm opacity-90">UOBK RSUD AL-MULK KOTA SUKABUMI</p>
         </motion.div>
 
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="bg-white/60 backdrop-blur-2xl rounded-[32px] p-6 sm:p-7 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.08)] border border-white/60 relative w-full flex flex-col justify-start mt-1.5 sm:mt-2.5"
+          className="bg-white/60 backdrop-blur-2xl rounded-[32px] p-6 sm:p-7 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.08)] border border-white/60 relative w-full flex flex-col justify-start"
         >
           <div className="mb-4">
             <h2 className="font-['Poppins',sans-serif] text-[17.5px] font-extrabold text-slate-800 mb-1.5 leading-tight tracking-wide uppercase">SELAMAT DATANG KEMBALI</h2>
