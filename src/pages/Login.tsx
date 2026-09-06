@@ -48,7 +48,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative font-sans overflow-x-hidden">
       {/* Header Hero Premium */}
-      <div className="absolute top-0 inset-x-0 h-[360px] sm:h-[390px] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 overflow-hidden pointer-events-none z-0">
+      <div className="absolute top-0 inset-x-0 h-[320px] sm:h-[350px] bg-gradient-to-br from-indigo-950 via-blue-800 to-cyan-500 overflow-hidden pointer-events-none z-0">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
         {/* Soft Glow */}
         <div className="absolute -top-32 -right-32 w-[500px] h-[500px] bg-cyan-400 rounded-full mix-blend-screen filter blur-[120px] opacity-40"></div>
@@ -76,16 +76,16 @@ export default function Login() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col w-full max-w-md mx-auto relative z-10 px-6 pt-6 pb-4">
+      <div className="w-full max-w-md mx-auto relative z-10 px-5 pt-5 pb-8 flex flex-col items-center">
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-5"
+          className="text-center mb-4"
         >
           <motion.div 
             animate={{ y: [0, -8, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="relative w-20 h-20 bg-white mx-auto flex items-center justify-center mb-3 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[20px]"
+            className="relative w-20 h-20 bg-white mx-auto flex items-center justify-center mb-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[20px]"
           >
             {logoUrl ? (
                <img src={logoUrl} alt="Logo" className="w-full h-full object-cover rounded-[20px] z-10" />
@@ -94,55 +94,55 @@ export default function Login() {
             )}
           </motion.div>
           <h1 className="text-3xl font-black text-white tracking-widest drop-shadow-md">SIVAKSIN</h1>
-          <p className="text-cyan-100 text-[11px] font-bold tracking-widest uppercase mt-1 drop-shadow-sm opacity-90">UOBK RSUD AL-MULK KOTA SUKABUMI</p>
+          <p className="text-cyan-100 text-[11px] font-bold tracking-widest uppercase mt-0.5 drop-shadow-sm opacity-90">UOBK RSUD AL-MULK KOTA SUKABUMI</p>
         </motion.div>
 
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="bg-white/60 backdrop-blur-2xl rounded-[32px] p-6 sm:p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white/50 flex-1 relative mb-6 flex flex-col justify-center"
+          className="bg-white/60 backdrop-blur-2xl rounded-[32px] p-6 sm:p-7 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.08)] border border-white/60 relative w-full flex flex-col justify-start"
         >
-          <div className="mb-6">
-            <h2 className="text-[20px] font-extrabold text-slate-800 mb-2 leading-tight tracking-tight">Selamat Datang Kembali</h2>
-            <p className="text-slate-500 text-[13px] font-medium leading-relaxed pr-4">Masuk untuk melanjutkan layanan SIVAKSIN</p>
+          <div className="mb-4">
+            <h2 className="text-[19px] font-extrabold text-slate-800 mb-1 leading-tight tracking-tight">Selamat Datang Kembali</h2>
+            <p className="text-slate-500 text-[12.5px] font-medium leading-relaxed">Masuk untuk melanjutkan layanan SIVAKSIN</p>
           </div>
 
           {error && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-red-50 text-red-600 p-3 rounded-[16px] text-sm mb-4 font-semibold flex items-start gap-3 border border-red-100">
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-red-50 text-red-600 p-3 rounded-[16px] text-sm mb-3.5 font-semibold flex items-start gap-3 border border-red-100">
               <div className="mt-0.5"><Shield size={16} className="text-red-500" /></div>
               <span>{error}</span>
             </motion.div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
+          <form onSubmit={handleLogin} className="space-y-3.5">
+            <div className="space-y-1.5">
               <label className="text-[13px] font-bold text-slate-700 pl-1">Username / Email</label>
               <div className="relative group">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors z-10">
-                  <User size={20} />
+                  <User size={19} />
                 </div>
                 <input 
                   type="text" 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-slate-100/90 border border-slate-300/80 hover:border-slate-400 rounded-[20px] py-[18px] pl-12 pr-4 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/15 transition-all shadow-[inset_2px_3px_6px_rgba(0,0,0,0.12),inset_-2px_-2px_5px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-normal text-[14px]"
+                  className="w-full bg-slate-100/90 border border-slate-300/80 hover:border-slate-400 rounded-[20px] py-[15px] pl-11 pr-4 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/15 transition-all shadow-[inset_2px_3px_6px_rgba(0,0,0,0.12),inset_-2px_-2px_5px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-normal text-[14px]"
                   placeholder="Masukan username / email anda"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-[13px] font-bold text-slate-700 pl-1">Kata Sandi</label>
               <div className="relative group">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors z-10">
-                  <Lock size={20} />
+                  <Lock size={19} />
                 </div>
                 <input 
                   type={showPassword ? "text" : "password"} 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-100/90 border border-slate-300/80 hover:border-slate-400 rounded-[20px] py-[18px] pl-12 pr-12 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/15 transition-all shadow-[inset_2px_3px_6px_rgba(0,0,0,0.12),inset_-2px_-2px_5px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-normal text-[14px]"
+                  className="w-full bg-slate-100/90 border border-slate-300/80 hover:border-slate-400 rounded-[20px] py-[15px] pl-11 pr-12 text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/15 transition-all shadow-[inset_2px_3px_6px_rgba(0,0,0,0.12),inset_-2px_-2px_5px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] placeholder:text-slate-400 placeholder:font-normal text-[14px]"
                   placeholder="••••••••"
                 />
                 <button 
@@ -150,41 +150,41 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 z-10"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
                 </button>
               </div>
-              <div className="flex justify-end pt-2">
-                <a href="#" className="flex-1 text-right text-[13px] font-bold text-blue-600 hover:text-blue-700 transition-colors">Lupa Kata Sandi?</a>
+              <div className="flex justify-end pt-1">
+                <a href="#" className="flex-1 text-right text-[12.5px] font-bold text-blue-600 hover:text-blue-700 transition-colors">Lupa Kata Sandi?</a>
               </div>
             </div>
 
             <motion.button 
               type="submit"
               disabled={isLoading}
-              animate={{ y: [0, -5, 0] }}
+              animate={{ y: [0, -4, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-              className="w-full h-[54px] relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white rounded-[20px] font-bold text-[15px] mt-6 flex items-center justify-center gap-2.5 shadow-[0_10px_25px_-5px_rgba(14,165,233,0.5),0_4px_10px_rgba(0,0,0,0.1)] hover:shadow-[0_15px_30px_-5px_rgba(14,165,233,0.7)] transition-all duration-300 active:scale-[0.97] group border border-blue-400/30 disabled:opacity-80 disabled:cursor-wait cursor-pointer"
+              className="w-full h-[50px] relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white rounded-[18px] font-bold text-[15px] mt-4 flex items-center justify-center gap-2.5 shadow-[0_10px_22px_-5px_rgba(14,165,233,0.5),0_4px_10px_rgba(0,0,0,0.08)] hover:shadow-[0_14px_26px_-5px_rgba(14,165,233,0.65)] transition-all duration-300 active:scale-[0.97] group border border-blue-400/30 disabled:opacity-80 disabled:cursor-wait cursor-pointer"
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={20} className="animate-spin text-white/90" /> 
-                  <span className="opacity-90">Memproses...</span>
+                  <Loader2 size={19} className="animate-spin text-white/90" /> 
+                  <span className="opacity-90 text-[14px]">Memproses...</span>
                 </>
               ) : (
                 <>
-                  <span className="tracking-wide text-[16px]">Masuk</span>
+                  <span className="tracking-wide text-[15px]">Masuk</span>
                   <motion.div
                     animate={{ x: [0, 5, 0] }}
                     transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
                   >
-                    <ArrowRight size={20} className="opacity-90" />
+                    <ArrowRight size={19} className="opacity-90" />
                   </motion.div>
                 </>
               )}
             </motion.button>
           </form>
 
-          <div className="mt-6 text-center text-[13px] font-semibold text-slate-500">
+          <div className="mt-5 text-center text-[12.5px] font-semibold text-slate-500">
             Belum punya akun?{' '}
             <button 
               type="button"
@@ -195,8 +195,7 @@ export default function Login() {
             </button>
           </div>
         </motion.div>
-
-        </div>
+      </div>
     </div>
   );
 }
