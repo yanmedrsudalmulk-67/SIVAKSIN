@@ -2257,14 +2257,14 @@ export default function Profile() {
                 } : undefined
               }
             >
-              <div className="relative z-10 flex-1 pt-4 sm:pt-5">
-                <h3 className="font-extrabold text-white text-[18px] mb-1.5 leading-tight tracking-tight drop-shadow-md">Lindungi Diri Anda</h3>
-                <div className="text-white/95 text-[12px] font-medium leading-tight space-y-0.5 drop-shadow-sm">
+              <div className="relative z-10 flex-1 pt-4 sm:pt-5 pb-1">
+                <h3 className="font-['Poppins',sans-serif] font-bold text-white text-[18px] mb-1.5 leading-tight tracking-tight drop-shadow-md">Lindungi Diri Anda</h3>
+                <div className="font-['Poppins',sans-serif] font-normal text-white/95 text-[11px] leading-tight space-y-0.5 drop-shadow-sm">
                   <p>Dengan vaksinasi lengkap</p>
                   <p>Perjalanan lebih tenang dan aman</p>
                 </div>
               </div>
-              
+
               <div className="relative w-24 h-24 flex items-center justify-center overflow-visible shrink-0">
                 <div className="bg-white/10 rounded-full p-3.5 backdrop-blur-md border border-white/30 shadow-xl relative overflow-hidden">
                   <Syringe size={40} className="text-white opacity-90" strokeWidth={1.5} />

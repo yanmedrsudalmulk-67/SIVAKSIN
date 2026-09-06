@@ -229,6 +229,10 @@ export default function Home() {
           </svg>
         </div>
         
+        {/* Glow Effects (Soft Gradients) */}
+        <div className="absolute -top-10 -right-10 w-[120%] h-[120%] bg-cyan-400 mix-blend-screen filter blur-[120px] opacity-25 pointer-events-none animate-pulse"></div>
+        <div className="absolute top-20 -left-20 w-[100%] h-[100%] bg-blue-500 mix-blend-screen filter blur-[140px] opacity-20 pointer-events-none"></div>
+
         {/* Shimmer Effect */}
         <div className="absolute inset-x-0 top-0 h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 translate-x-[-100%] animate-[shimmer_8s_infinite]"></div>
       </div>
@@ -293,15 +297,15 @@ export default function Home() {
             } : undefined
           }
         >
-          <div className="relative z-10 flex-1 pt-4 sm:pt-5">
-             <h3 className="font-extrabold text-white text-[18px] mb-1.5 leading-tight tracking-tight drop-shadow-md">Lindungi Diri Anda</h3>
-             <div className="text-white/95 text-[12px] font-medium leading-tight space-y-0.5 drop-shadow-sm">
+          <div className="relative z-10 flex-1 pt-4 sm:pt-5 pb-1">
+             <h3 className="font-['Poppins',sans-serif] font-bold text-white text-[18px] mb-1.5 leading-tight tracking-tight drop-shadow-md">Lindungi Diri Anda</h3>
+             <div className="font-['Poppins',sans-serif] font-normal text-white/95 text-[11px] leading-tight space-y-0.5 drop-shadow-sm">
                 <p>Dengan vaksinasi lengkap</p>
                 <p>Perjalanan lebih tenang dan aman</p>
              </div>
           </div>
           
-          <div className="relative w-28 h-28 flex items-center justify-center overflow-visible">
+          <div className="relative w-28 h-28 flex items-center justify-center overflow-visible shrink-0">
              <div className="absolute inset-0 bg-blue-400/30 blur-2xl rounded-full animate-pulse scale-150"></div>
              <motion.div 
                animate={{ y: [0, -8, 0], rotate: [0, 4, 0] }}
@@ -620,7 +624,9 @@ export default function Home() {
 
             {/* Widget Ketersediaan E-ICV Realtime */}
             <div className="bg-gradient-to-br from-[#0F3DDE] via-[#2563EB] to-[#06B6D4] text-white rounded-[28px] p-5 shadow-lg border border-blue-400/30 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+              {/* Glow Effects (Soft Gradients Light) */}
+              <div className="absolute -top-10 -right-10 w-[120%] h-[120%] bg-cyan-400 mix-blend-screen filter blur-[90px] opacity-25 pointer-events-none animate-pulse"></div>
+              <div className="absolute top-10 -left-10 w-[100%] h-[100%] bg-blue-400 mix-blend-screen filter blur-[100px] opacity-20 pointer-events-none"></div>
               
               <div className="flex items-center justify-between mb-3 relative z-10">
                 <div className="flex items-center gap-2.5">
@@ -629,47 +635,22 @@ export default function Home() {
                   </div>
                   <div>
                     <h4 className="font-extrabold text-xs text-white">Ketersediaan E-ICV</h4>
-                    <p className="text-[10px] text-blue-100">Buku Kuning Internasional</p>
+                    <p className="text-[10px] text-white/90 font-medium">Sertifikat Vaksin Internasional</p>
                   </div>
                 </div>
-                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-xs ${
-                  eicvStatus === 'Tersedia' 
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40' 
-                    : eicvStatus === 'Terbatas' 
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' 
-                    : 'bg-rose-500/20 text-rose-300 border-rose-400/40'
-                }`}>
+                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/40 shadow-xs">
                   ● {eicvStatus}
                 </span>
               </div>
 
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 mb-3.5 relative z-10">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/20 relative z-10">
                 <div className="flex items-baseline justify-between mb-1">
-                  <span className="text-[11px] text-slate-300 font-medium">Stok Blanko Resmi:</span>
-                  <span className="text-lg font-black text-emerald-300">{eicvStock} <span className="text-[11px] font-bold text-white">Buku</span></span>
+                  <span className="text-[11px] text-white/90 font-medium">Stok Sertifikat Vaksin:</span>
+                  <span className="text-lg font-black text-white">{eicvStock} <span className="text-[11px] font-bold text-white">Sertifikat</span></span>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed line-clamp-2">
-                  {eicvNote || 'Blanko Resmi E-ICV / Buku Kuning Siap Diterbitkan di RSUD Al-Mulk'}
+                <p className="text-[11px] text-white/90 leading-relaxed line-clamp-2">
+                  {eicvNote || 'Sertifikat Vaksin Internasional E-ICV Siap Diterbitkan di RSUD Al-Mulk'}
                 </p>
-              </div>
-
-              <div className="flex items-center gap-2 relative z-10">
-                <button 
-                  onClick={() => navigate('/certificate')}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                >
-                  <span>Cek E-ICV Saya</span>
-                  <ChevronRight size={14} />
-                </button>
-                {(user?.role === 'admin' || role === 'admin') && (
-                  <button 
-                    onClick={() => navigate('/profile?view=eicv_settings')}
-                    title="Atur Ketersediaan E-ICV di Pengaturan Admin"
-                    className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition-all flex items-center justify-center cursor-pointer active:scale-95"
-                  >
-                    <SlidersHorizontal size={14} />
-                  </button>
-                )}
               </div>
             </div>
 
