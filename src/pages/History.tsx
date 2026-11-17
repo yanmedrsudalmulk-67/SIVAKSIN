@@ -2248,17 +2248,17 @@ export default function History() {
                 </div>
               </div>
 
-              {/* Sisa Blanko ICV */}
+              {/* Sisa Stok ICV / E-ICV */}
               <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
                 <div>
                   <span className="text-[10px] font-black text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg uppercase tracking-wider">
-                    Stok Blanko ICV
+                    Stok ICV / E-ICV
                   </span>
                   <h3 className="text-3xl font-black text-amber-600 mt-2">
-                    {eicvStock || 18} <span className="text-sm font-bold text-slate-500">Buku/Blanko</span>
+                    {eicvStock || 18} <span className="text-sm font-bold text-slate-500">ICV / E-ICV</span>
                   </h3>
                   <p className="text-xs text-slate-500 font-medium mt-1">
-                    Sisa blangko fisik E-ICV siap cetak
+                    Sisa ICV dan E-ICV siap cetak
                   </p>
                 </div>
 
