@@ -755,28 +755,24 @@ export function TravelLandingPage() {
       {/* ========================================================================= */}
       <section id="pricing-details" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         
-        {/* Outer Container with Blue Gradient and 3 Vaccine Cards */}
-        <div className="bg-gradient-to-r from-[#0038D1] via-[#0052FF] to-[#38BDF8] rounded-[36px] p-6 lg:p-10 shadow-[0_24px_60px_rgba(2,132,199,0.20)] relative overflow-hidden">
+        {/* Outer Container with Blue Gradient and 4 Vaccine Cards (overflow-visible for 3D Pop-Out effect) */}
+        <div className="bg-gradient-to-r from-[#0038D1] via-[#0052FF] to-[#38BDF8] rounded-[36px] p-6 lg:p-10 shadow-[0_24px_60px_rgba(2,132,199,0.20)] relative overflow-visible">
           
-          {/* Header row inside the card */}
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6 text-white">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center shrink-0 border border-white/30 shadow-md">
-                <Syringe size={22} className="text-white" />
-              </div>
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wider">
-                  DAFTAR HARGA VAKSIN
-                </h2>
-                <p className="text-xs sm:text-sm text-sky-100 font-medium">
-                  Tarif resmi pelayanan vaksinasi internasional & penerbitan sertifikat E-ICV RSUD Al-Mulk Kota Sukabumi.
-                </p>
-              </div>
-            </div>
+          {/* Clipped inner atmospheric glow layer matching Hero Banner depth */}
+          <div className="absolute inset-0 rounded-[36px] overflow-hidden pointer-events-none select-none z-0">
+            <div className="absolute -top-24 -right-24 w-80 h-80 bg-[#A7FF00]/15 rounded-full blur-3xl"></div>
+            <div className="absolute -bottom-24 left-1/3 w-72 h-72 bg-sky-300/20 rounded-full blur-3xl"></div>
+          </div>
 
-            <div className="hidden lg:flex items-center gap-2 text-xs font-bold text-sky-100 bg-white/10 px-4 py-2 rounded-full border border-white/20">
-              <ShieldCheck size={16} />
-              <span>Sesuai Perda Tarif & SK Direktur RSUD Al-Mulk</span>
+          {/* Header row inside the card */}
+          <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6 text-white">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wider">
+                DAFTAR HARGA VAKSIN
+              </h2>
+              <p className="text-xs sm:text-sm text-sky-100 font-medium">
+                Tarif resmi pelayanan vaksinasi internasional & penerbitan sertifikat E-ICV RSUD Al-Mulk Kota Sukabumi.
+              </p>
             </div>
           </div>
 
@@ -943,19 +939,51 @@ export function TravelLandingPage() {
             </div>
 
             {/* 4. Paket Bundling Meningitis + Polio (POPULAR & HEMAT) */}
-            <div className="bg-white rounded-[24px] p-5 text-slate-800 shadow-2xl flex flex-col justify-between relative border-2 border-[#A7FF00] hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#A7FF00] text-slate-950 px-3.5 py-1 rounded-full text-[9.5px] font-black tracking-wider uppercase shadow-md whitespace-nowrap">
+            <div className="bg-white rounded-[24px] p-5 text-slate-800 shadow-2xl flex flex-col justify-between relative z-10 border-2 border-[#A7FF00] hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 mt-10 sm:mt-8 lg:mt-0 group/bundling">
+              <div className="absolute -top-3 left-5 lg:left-1/2 lg:-translate-x-1/2 bg-[#A7FF00] text-slate-950 px-3.5 py-1 rounded-full text-[9.5px] font-black tracking-wider uppercase shadow-md whitespace-nowrap z-20">
                 Paling Hemat & Populer
               </div>
 
+              {/* 3D Pop-Out Hero Banner Floating Dual Vaccine Vials (Polio Kiri Nyerong Kiri + Meningitis Kanan Nyerong Kanan) */}
+              <div className="absolute -top-14 right-1 sm:-top-16 sm:right-2 lg:-top-[182px] lg:-right-4 xl:-top-[194px] xl:-right-6 z-30 flex items-end pointer-events-auto select-none">
+                {/* Soft Atmospheric 3D Glow Behind Vials (Tanpa Card Glassmorphism) */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#38BDF8]/35 via-white/25 to-[#A7FF00]/35 blur-2xl pointer-events-none"></div>
+
+                {/* Botol 1 (Kiri): Vaksin Polio 3D - Agak Nyerong ke Kiri & Melayang */}
+                <div
+                  className="relative z-10 flex flex-col items-center -mr-3 sm:-mr-4 lg:-mr-5 group/polio"
+                  style={{ animation: 'sivaksinFloat 3.8s ease-in-out infinite 0.55s' }}
+                >
+                  <img
+                    src="/assets/aistudio/Vaksin_Polio_Glossy_3D_Vial_12252e7e.png"
+                    alt="Botol 3D Vaksin Polio Resmi"
+                    className="w-[58px] sm:w-[68px] lg:w-[92px] xl:w-[100px] h-auto object-contain transform -rotate-[8deg] group-hover/polio:rotate-0 group-hover/polio:scale-105 transition-all duration-500 drop-shadow-[0_18px_28px_rgba(15,23,42,0.40)]"
+                  />
+                  <div className="w-10 sm:w-12 lg:w-16 h-2 -mt-1.5 rounded-full bg-slate-950/25 blur-sm pointer-events-none"></div>
+                </div>
+
+                {/* Botol 2 (Kanan): Vaksin Meningitis 3D - Agak Nyerong ke Kanan & Melayang */}
+                <div
+                  className="relative z-20 flex flex-col items-center group/meningitis"
+                  style={{ animation: 'sivaksinFloat 3.5s ease-in-out infinite' }}
+                >
+                  <img
+                    src="/assets/aistudio/Glossy_3D_Meningitis_Vaccine_Vial_d0ffed8a.png"
+                    alt="Botol 3D Vaksin Meningitis Resmi"
+                    className="w-[64px] sm:w-[74px] lg:w-[102px] xl:w-[112px] h-auto object-contain transform rotate-[7deg] group-hover/meningitis:rotate-0 group-hover/meningitis:scale-105 transition-all duration-500 drop-shadow-[0_22px_32px_rgba(15,23,42,0.45)]"
+                  />
+                  <div className="w-11 sm:w-13 lg:w-18 h-2.5 -mt-1.5 rounded-full bg-slate-950/30 blur-sm pointer-events-none"></div>
+                </div>
+              </div>
+
               <div>
-                <div className="h-6 flex items-center">
+                <div className="h-6 flex items-center pr-28 lg:pr-0">
                   <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold shadow-xs">
                     Hemat Rp {bundlingDiscount.toLocaleString('id-ID')}
                   </span>
                 </div>
 
-                <div className="mt-2 h-12 flex flex-col justify-start">
+                <div className="mt-2 h-12 flex flex-col justify-start pr-28 lg:pr-0">
                   <h3 className="text-lg font-black text-slate-900 leading-tight">Bundling Umroh</h3>
                   <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-snug">Meningitis ACWY + Polio IPV Lengkap</p>
                 </div>
@@ -1144,7 +1172,7 @@ export function TravelLandingPage() {
             </div>
             <div>
               <p className="text-white font-black text-sm">SIVAKSIN • RSUD AL-MULK KOTA SUKABUMI</p>
-              <p className="text-[11px] text-slate-500">Poli MCU Vaksinasi Internasional (Kode Layanan: U0029)</p>
+              <p className="text-[11px] text-slate-500">Poli MCU Vaksinasi Internasional</p>
             </div>
           </div>
 
