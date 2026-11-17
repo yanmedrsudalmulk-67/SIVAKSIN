@@ -23,3 +23,6 @@ public/uploads/
 scratch/
 .agents/
 .aistudio/
+
+# Proteksi Otomatis
+data/
