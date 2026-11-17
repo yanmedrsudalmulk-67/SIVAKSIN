@@ -28,6 +28,25 @@ export default function InformedConsentDoc({
     patient.selectedVaccine ||
     'Meningitis / Vaksinasi Internasional';
 
+  // Format TTL date: DD/MM/YYYY
+  const formatTtlDate = (dateStr: string) => {
+    if (!dateStr || dateStr === '-') return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Dokter Pemeriksa / Vaksinator terintegrasi
+  const rawDoctor = booking?.doctor_name || booking?.patient?.doctor_name || booking?.doctor || booking?.doctorName || (booking?.doctor_code === 'D00179' || booking?.patient?.doctor_code === 'D00179' ? 'dr. Chrysman Andreria Hatulely' : 'dr. M. Arifin Ramadhani');
+  const namaDokter = typeof rawDoctor === 'string' ? rawDoctor : rawDoctor?.nm_dokter || rawDoctor?.name || 'dr. M. Arifin Ramadhani';
+
   // Calculate age if dob available
   const calculateAge = (dobStr?: string) => {
     if (!dobStr || dobStr === '-') return '-';
@@ -57,7 +76,7 @@ export default function InformedConsentDoc({
 
   return (
     <div
-      className={`bg-white text-black font-sans mx-auto p-3.5 sm:p-8 md:p-12 w-full max-w-[820px] shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-6 print:m-0 print:max-w-none ${
+      className={`print-document-f4 bg-white text-black font-sans mx-auto p-3.5 sm:p-8 md:p-12 w-full max-w-[215mm] shadow-md border border-slate-200 print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none ${
         isPrintMode ? 'print-container' : ''
       }`}
       style={{ minHeight: '330mm', color: '#000000', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }}
@@ -163,7 +182,7 @@ export default function InformedConsentDoc({
               <span>:</span>
             </div>
             <div className="col-span-8 border-b border-dotted border-black/70 font-semibold px-1 pb-0.5 min-h-[20px]">
-              {tempatLahir}, {tglLahir}
+              {tempatLahir}{formatTtlDate(tglLahir) ? `, ${formatTtlDate(tglLahir)}` : ''}
             </div>
           </div>
 
@@ -236,11 +255,11 @@ export default function InformedConsentDoc({
           <p className="mt-1">( ........................................ )</p>
         </div>
 
-        {/* Dokter / Operator */}
+        {/* Dokter Vaksinator */}
         <div className="flex flex-col items-center">
-          <p className="font-bold text-black mb-14 leading-tight">Dokter / operator</p>
+          <p className="font-bold text-black mb-14 leading-tight">Dokter Vaksinator</p>
           <div className="border-b border-black w-40"></div>
-          <p className="mt-1">( ........................................ )</p>
+          <p className="mt-1 font-bold">( {namaDokter} )</p>
         </div>
 
         {/* Yang membuat Keterangan */}

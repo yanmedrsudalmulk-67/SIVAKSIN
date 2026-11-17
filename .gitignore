@@ -1,8 +1,24 @@
+# Dependensi & Hasil Build
 node_modules/
 build/
 dist/
 coverage/
+*.tsbuildinfo
+
+# File OS & Log
 .DS_Store
 *.log
+
+# Environment Variables & Rahasia (JANGAN unggah .env.local ke GitHub)
 .env*
 !.env.example
+
+# Data Operasional Lokal RS, Database Pasien, Dokumen Upload & AutoSync Log
+# (Menjaga privasi data pasien/NIK/KTP/Paspor & mencegah konflik saat sync AI Studio)
+data/
+public/uploads/
+
+# File Sementara, Screenshot Uji & Agen Lokal
+scratch/
+.agents/
+.aistudio/

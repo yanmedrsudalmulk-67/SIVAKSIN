@@ -1,0 +1,36 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+const initial = { users: [{id:'admin',username:'admin',password:'secret',role:'admin'}, {id:'user',username:'user',password:'secret',role:'user'}], bookings: [{id:'BK-1',user_id:'user',patient:{name:'Peserta'},status:'terverifikasi'}], notifications: [] };
+let db = structuredClone(initial);
+globalThis.__sivaksinTest = { getDb:()=>structuredClone(db), saveDb:value=>{db=structuredClone(value);return true;}, saveUploadedFile:()=>({success:true,url:'/uploads/eicv_test.pdf'}) };
+let source = fs.readFileSync(new URL('../server/apiRouter.js',import.meta.url),'utf8').replace("import { getDb, saveDb, saveUploadedFile } from './dbHandler.js';",'const { getDb, saveDb, saveUploadedFile } = globalThis.__sivaksinTest;').replace("import { getTunnelStatus, startTunnel, stopTunnel } from './tunnelManager.js';",'const getTunnelStatus=()=>({}), startTunnel=async()=>({}), stopTunnel=()=>({});');
+const {handleLocalApi} = await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const request = (url, method='GET', body, cookie='') => new Promise(resolve=>{const req=new EventEmitter();Object.assign(req,{url,method,headers:{host:'localhost',cookie}});const headers={};const res={setHeader:(key,value)=>headers[key]=value,end:value=>resolve({status:res.statusCode,body:JSON.parse(value),headers})};handleLocalApi(req,res,()=>resolve({status:404}));queueMicrotask(()=>{if(body)req.emit('data',Buffer.from(JSON.stringify(body)));req.emit('end');});});
+const login = async username => {const res=await request('/api/users/login','POST',{username,password:'secret'});assert.equal(res.status,200);assert.equal(res.body.user.password,undefined);return res.headers['Set-Cookie'].split(';')[0];};
+const pdf='data:application/pdf;base64,'+Buffer.from('%PDF-1.4\nfixture\n%%EOF').toString('base64');
+test('Admin-only certificate upload, ownership, validation, and recap',async()=>{
+ assert.equal((await request('/api/admin/users')).status,403);
+ assert.equal((await request('/api/bookings/BK-1/certificate','POST',{fileData:pdf})).status,403);
+ const user=await login('user');
+ assert.equal((await request('/api/admin/users','GET',null,user)).status,403);
+ assert.equal((await request('/api/bookings/BK-1/certificate','POST',{fileData:pdf},user)).status,403);
+ await request('/api/users/user','PUT',{role:'admin',id:'admin'},user);
+ assert.equal(db.users.find(u=>u.id==='user').role,'user');
+ assert.equal((await request('/api/admin/users','GET',null,user)).status,403);
+ const admin=await login('admin');
+ const recap=await request('/api/admin/users','GET',null,admin);assert.equal(recap.body.length,2);assert.ok(recap.body.every(u=>!('password' in u)));
+ assert.equal((await request('/api/bookings/BK-1/certificate','POST',{fileData:'data:application/pdf;base64,AAAA'},admin)).status,400);
+ assert.equal((await request('/api/bookings/missing/certificate','POST',{fileData:pdf},admin)).status,404);
+ const uploaded=await request('/api/bookings/BK-1/certificate','POST',{fileData:pdf,fileName:'Resmi.pdf'},admin);
+ assert.equal(uploaded.status,200);assert.equal(uploaded.body.booking.patient.e_icv_uploaded_by,'admin');assert.equal(db.bookings[0].patient.e_icv_url,'/uploads/eicv_test.pdf');assert.equal(db.notifications[0].userId,'user');
+ await request('/api/bookings/BK-1','PUT',{patient:{e_icv_url:'forged'},user_id:'attacker'},user);
+ assert.equal(db.bookings[0].patient.e_icv_url,'/uploads/eicv_test.pdf');assert.equal(db.bookings[0].user_id,'user');
+ assert.equal((await request('/api/db','POST',db,user)).status,403);
+ await request('/api/users/logout','POST',null,admin);assert.equal((await request('/api/admin/users','GET',null,admin)).status,403);
+});
+test('Signup cannot create admin or replace existing identity',async()=>{
+ const res=await request('/api/users','POST',{id:'admin',username:'new-user',password:'example',role:'admin'});
+ assert.equal(res.status,201);assert.equal(res.body.user.role,'user');assert.notEqual(res.body.user.id,'admin');assert.equal(res.body.user.password,undefined);assert.ok(res.headers['Set-Cookie']);
+});

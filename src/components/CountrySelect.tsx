@@ -7,13 +7,15 @@ interface CountrySelectProps {
   onChange: (countryName: string) => void;
   placeholder?: string;
   error?: string;
+  required?: boolean;
 }
 
 export default function CountrySelect({
   value,
   onChange,
-  placeholder = 'Pilih Negara Tujuan',
-  error
+  placeholder = 'Pilih Negara Tujuan (Opsional)',
+  error,
+  required = false
 }: CountrySelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -62,10 +64,14 @@ export default function CountrySelect({
 
   return (
     <div className="space-y-1.5 relative" ref={containerRef}>
-      <label className="text-[13px] font-extrabold text-slate-800 pl-1 flex items-center justify-between">
+      <label className="text-[13px] font-bold text-slate-700 pl-1 flex items-center justify-between">
         <span className="flex items-center gap-1.5">
           <span>Negara Tujuan</span>
-          <span className="text-red-500">*</span>
+          {required ? (
+            <span className="text-red-500">*</span>
+          ) : (
+            <span className="text-[11px] font-medium text-slate-400">(Opsional jika bepergian)</span>
+          )}
         </span>
         <span className="text-[11px] font-semibold text-slate-400">Seluruh Dunia (A–Z)</span>
       </label>
@@ -74,7 +80,7 @@ export default function CountrySelect({
       <button
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
-        className={`w-full h-[56px] lg:h-[60px] bg-white border rounded-[18px] lg:rounded-[20px] px-4 text-left flex items-center justify-between transition-all cursor-pointer shadow-xs ${
+        className={`w-full h-[54px] lg:h-12 bg-white border rounded-[16px] lg:rounded-xl px-4 text-left flex items-center justify-between transition-all cursor-pointer shadow-xs ${
           isOpen
             ? 'border-blue-500 ring-4 ring-blue-500/10'
             : error

@@ -32,12 +32,16 @@ export default function SkriningVaksinDoc({
   const nama = patient.name || patient.fullName || '-';
   const tglLahir = patient.dob || patient.tanggalLahir || '-';
 
-  // Saved answers or default (all 'tidak' except question 11 which might be 'ya')
+  // Dokter Pemeriksa / Penanggung Jawab terintegrasi
+  const rawDoctor = booking?.doctor_name || booking?.patient?.doctor_name || booking?.doctor || booking?.doctorName || (booking?.doctor_code === 'D00179' || booking?.patient?.doctor_code === 'D00179' ? 'dr. Chrysman Andreria Hatulely' : 'dr. M. Arifin Ramadhani');
+  const namaDokter = typeof rawDoctor === 'string' ? rawDoctor : rawDoctor?.nm_dokter || rawDoctor?.name || 'dr. M. Arifin Ramadhani';
+
+  // Saved answers or default (empty by default so doctor can fill manually after print)
   const savedAnswers = patient.screeningAnswers || {};
-  const [answers, setAnswers] = useState<Record<number, 'ya' | 'tidak' | 'tidak_tahu'>>(() => {
-    const initial: Record<number, 'ya' | 'tidak' | 'tidak_tahu'> = {};
+  const [answers, setAnswers] = useState<Record<number, 'ya' | 'tidak' | 'tidak_tahu' | ''>>(() => {
+    const initial: Record<number, 'ya' | 'tidak' | 'tidak_tahu' | ''> = {};
     SCREENING_QUESTIONS.forEach((_, idx) => {
-      initial[idx] = savedAnswers[idx] || (idx === 10 ? 'ya' : 'tidak');
+      initial[idx] = savedAnswers[idx] || '';
     });
     return initial;
   });
@@ -45,8 +49,8 @@ export default function SkriningVaksinDoc({
   const [keterangan, setKeterangan] = useState<Record<number, string>>(
     () => patient.screeningNotes || {}
   );
-  const [hasilStatus, setHasilStatus] = useState<'layak' | 'tunda' | 'tidak_layak'>(
-    () => patient.screeningResult || 'layak'
+  const [hasilStatus, setHasilStatus] = useState<'layak' | 'tunda' | 'tidak_layak' | ''>(
+    () => patient.screeningResult || ''
   );
   const [petugasCatatan, setPetugasCatatan] = useState<string>(
     () => patient.doctorScreeningNote || ''
@@ -54,7 +58,7 @@ export default function SkriningVaksinDoc({
 
   const handleAnswerChange = (idx: number, val: 'ya' | 'tidak' | 'tidak_tahu') => {
     if (!canEdit) return;
-    const updated = { ...answers, [idx]: val };
+    const updated = { ...answers, [idx]: answers[idx] === val ? ('' as any) : val };
     setAnswers(updated);
     if (onUpdateScreening) {
       onUpdateScreening({
@@ -82,12 +86,13 @@ export default function SkriningVaksinDoc({
 
   const handleStatusChange = (status: 'layak' | 'tunda' | 'tidak_layak') => {
     if (!canEdit) return;
-    setHasilStatus(status);
+    const newStatus = hasilStatus === status ? ('' as any) : status;
+    setHasilStatus(newStatus);
     if (onUpdateScreening) {
       onUpdateScreening({
         screeningAnswers: answers,
         screeningNotes: keterangan,
-        screeningResult: status,
+        screeningResult: newStatus,
         doctorScreeningNote: petugasCatatan
       });
     }
@@ -118,7 +123,7 @@ export default function SkriningVaksinDoc({
 
   return (
     <div
-      className={`bg-white text-black font-sans mx-auto p-3.5 sm:p-8 md:p-10 w-full max-w-[840px] shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-6 print:m-0 print:max-w-none ${
+      className={`print-document-f4 bg-white text-black font-sans mx-auto p-3.5 sm:p-8 md:p-10 w-full max-w-[215mm] shadow-md border border-slate-200 print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none ${
         isPrintMode ? 'print-container' : ''
       }`}
       style={{ minHeight: '330mm', color: '#000000', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }}
@@ -173,10 +178,10 @@ export default function SkriningVaksinDoc({
                       type="button"
                       disabled={!canEdit}
                       onClick={() => handleAnswerChange(idx, 'ya')}
-                      className={`w-5 h-5 mx-auto rounded border flex items-center justify-center font-bold text-xs cursor-pointer ${
+                      className={`w-4 h-4 mx-auto rounded-xs border flex items-center justify-center font-bold text-[10px] cursor-pointer transition-colors ${
                         currentAns === 'ya'
                           ? 'bg-black text-white border-black'
-                          : 'border-black/50 hover:bg-slate-100'
+                          : 'border-black/70 bg-white hover:bg-slate-100'
                       }`}
                     >
                       {currentAns === 'ya' ? '✓' : ''}
@@ -187,10 +192,10 @@ export default function SkriningVaksinDoc({
                       type="button"
                       disabled={!canEdit}
                       onClick={() => handleAnswerChange(idx, 'tidak')}
-                      className={`w-5 h-5 mx-auto rounded border flex items-center justify-center font-bold text-xs cursor-pointer ${
+                      className={`w-4 h-4 mx-auto rounded-xs border flex items-center justify-center font-bold text-[10px] cursor-pointer transition-colors ${
                         currentAns === 'tidak'
                           ? 'bg-black text-white border-black'
-                          : 'border-black/50 hover:bg-slate-100'
+                          : 'border-black/70 bg-white hover:bg-slate-100'
                       }`}
                     >
                       {currentAns === 'tidak' ? '✓' : ''}
@@ -201,10 +206,10 @@ export default function SkriningVaksinDoc({
                       type="button"
                       disabled={!canEdit}
                       onClick={() => handleAnswerChange(idx, 'tidak_tahu')}
-                      className={`w-5 h-5 mx-auto rounded border flex items-center justify-center font-bold text-xs cursor-pointer ${
+                      className={`w-4 h-4 mx-auto rounded-xs border flex items-center justify-center font-bold text-[10px] cursor-pointer transition-colors ${
                         currentAns === 'tidak_tahu'
                           ? 'bg-black text-white border-black'
-                          : 'border-black/50 hover:bg-slate-100'
+                          : 'border-black/70 bg-white hover:bg-slate-100'
                       }`}
                     >
                       {currentAns === 'tidak_tahu' ? '✓' : ''}
@@ -216,7 +221,7 @@ export default function SkriningVaksinDoc({
                       disabled={!canEdit}
                       value={keterangan[idx] || ''}
                       onChange={(e) => handleKeteranganChange(idx, e.target.value)}
-                      placeholder="-"
+                      placeholder=""
                       className="w-full text-[10px] px-1 py-0.5 bg-transparent outline-none border-b border-dotted border-black/30 focus:border-black text-center"
                     />
                   </td>
@@ -234,45 +239,53 @@ export default function SkriningVaksinDoc({
             Hasil Penapisan Medis:
           </span>
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1.5 cursor-pointer font-bold">
-              <input
-                type="radio"
-                name="hasilSkrining"
-                checked={hasilStatus === 'layak'}
-                onChange={() => handleStatusChange('layak')}
-                disabled={!canEdit}
-                className="accent-black"
-              />
-              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => handleStatusChange('layak')}
+              className="flex items-center gap-1.5 cursor-pointer font-bold text-left bg-transparent border-none p-0 group"
+            >
+              <span className="w-4 h-4 rounded-full border border-black flex items-center justify-center shrink-0 bg-white group-hover:border-slate-800">
+                {hasilStatus === 'layak' && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-black"></span>
+                )}
+              </span>
+              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px]">
                 LAYAK VAKSIN
               </span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer font-bold">
-              <input
-                type="radio"
-                name="hasilSkrining"
-                checked={hasilStatus === 'tunda'}
-                onChange={() => handleStatusChange('tunda')}
-                disabled={!canEdit}
-                className="accent-black"
-              />
-              <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+            </button>
+
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => handleStatusChange('tunda')}
+              className="flex items-center gap-1.5 cursor-pointer font-bold text-left bg-transparent border-none p-0 group"
+            >
+              <span className="w-4 h-4 rounded-full border border-black flex items-center justify-center shrink-0 bg-white group-hover:border-slate-800">
+                {hasilStatus === 'tunda' && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-black"></span>
+                )}
+              </span>
+              <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 text-[11px]">
                 DITUNDA
               </span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer font-bold">
-              <input
-                type="radio"
-                name="hasilSkrining"
-                checked={hasilStatus === 'tidak_layak'}
-                onChange={() => handleStatusChange('tidak_layak')}
-                disabled={!canEdit}
-                className="accent-black"
-              />
-              <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300">
+            </button>
+
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => handleStatusChange('tidak_layak')}
+              className="flex items-center gap-1.5 cursor-pointer font-bold text-left bg-transparent border-none p-0 group"
+            >
+              <span className="w-4 h-4 rounded-full border border-black flex items-center justify-center shrink-0 bg-white group-hover:border-slate-800">
+                {hasilStatus === 'tidak_layak' && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-black"></span>
+                )}
+              </span>
+              <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 text-[11px]">
                 TIDAK LAYAK
               </span>
-            </label>
+            </button>
           </div>
         </div>
 
@@ -293,26 +306,19 @@ export default function SkriningVaksinDoc({
                 });
               }
             }}
-            placeholder="Kondisi tanda vital stabil, tidak ada kontraindikasi mutlak..."
+            placeholder=""
             className="flex-1 border-b border-dotted border-black/70 px-1 py-0.5 outline-none text-[11px] bg-transparent"
           />
         </div>
       </div>
 
-      {/* Bagian Tanda Tangan Dokter & Petugas Skrining */}
-      <div className="mt-6 grid grid-cols-2 gap-8 text-[11.5px] font-sans">
-        <div className="text-center">
-          <p className="mb-0.5">Diisi oleh (Petugas Penapis):</p>
-          <p className="text-[10.5px] text-slate-500 mb-12">Tanggal: {currentDateDisplay()}</p>
-          <div className="border-b border-black w-48 mx-auto"></div>
-          <p className="mt-1 font-bold">( ........................................ )</p>
-        </div>
-
-        <div className="text-center">
+      {/* Bagian Tanda Tangan Dokter Penanggung Jawab (Petugas Penapis dihapus sesuai permintaan) */}
+      <div className="mt-8 flex justify-end text-[11.5px] font-sans">
+        <div className="text-center w-64">
           <p className="mb-0.5">Diverifikasi oleh (Dokter Penanggung Jawab):</p>
-          <p className="text-[10.5px] text-slate-500 mb-12">Tanggal: {currentDateDisplay()}</p>
+          <p className="text-[10.5px] text-slate-500 mb-14">Tanggal: {currentDateDisplay()}</p>
           <div className="border-b border-black w-48 mx-auto"></div>
-          <p className="mt-1 font-bold">( dr. .................................... )</p>
+          <p className="mt-1 font-bold">( {namaDokter} )</p>
         </div>
       </div>
     </div>

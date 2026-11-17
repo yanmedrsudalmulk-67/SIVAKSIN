@@ -86,56 +86,75 @@ export default function InformedConsent() {
   }, [selectedBooking]);
 
   const handlePrint = async () => {
-    const element = document.getElementById('print-document-container');
-    if (!element) return;
+    const container = document.getElementById('print-document-container');
+    if (!container) return;
+    
+    // Find the actual document sheet (first child)
+    const targetDoc = (container.firstElementChild as HTMLElement) || container;
     
     setIsGeneratingPdf(true);
     
+    // Save original styles to restore after export
+    const origBoxShadow = targetDoc.style.boxShadow;
+    const origBorder = targetDoc.style.border;
+    const origWidth = targetDoc.style.width;
+    const origMaxWidth = targetDoc.style.maxWidth;
+    const origPadding = targetDoc.style.padding;
+    
     try {
-      // Add print mode class temporarily
-      const children = Array.from(element.children);
-      children.forEach((child) => child.classList.add('print-container'));
+      // Set exact standard F4 dimensions (215mm = 814px at 96 DPI)
+      targetDoc.style.boxShadow = 'none';
+      targetDoc.style.border = 'none';
+      targetDoc.style.width = '814px';
+      targetDoc.style.maxWidth = '814px';
+      targetDoc.style.padding = '44px 48px';
       
       const docName = activeDoc === 'permohonan' ? 'Permohonan' 
                     : activeDoc === 'consent' ? 'Informed_Consent' 
                     : 'Skrining';
       const patientName = selectedBooking?.patient?.name?.replace(/ /g, '_') || 'Pasien';
 
-      // Use our robust helper which has color sanitization built-in
-      const canvas = await renderHtmlToCanvas(element, {
-        scale: 3, // High quality
+      // Ultra-sharp rendering with color sanitization
+      const canvas = await renderHtmlToCanvas(targetDoc, {
+        scale: 3, // High quality 300+ DPI
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: 850, // Narrow window to match our document max-width
+        width: 814,
+        windowWidth: 814,
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      
+      // Standard Indonesian Folio / F4 size: 215mm x 330mm
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'mm',
-        format: [215, 330], // F4 / Folio Size
+        format: [215, 330],
+        compress: true,
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      // Calculate dimensions to fit exactly into F4
-      // We want to fill the width of the PDF
-      const imgWidth = pdfWidth;
+      // Calculate height proportional to 215mm width
+      const imgWidth = pdfWidth; // 215mm
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      // Center the image if it's shorter than the page, or just place it at top
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`Dokumen_${docName}_${patientName}.pdf`);
-
-      // Clean up the temporary class
-      children.forEach((child) => child.classList.remove('print-container'));
+      // Fit into F4 exactly matching on-screen look
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, Math.min(imgHeight, pdfHeight));
+      pdf.save(`Dokumen_${docName}_${patientName}_F4.pdf`);
     } catch (err) {
       console.error('Gagal membuat PDF:', err);
       // Fallback to basic print if helper fails
       window.print();
     } finally {
+      // Always restore original styles
+      targetDoc.style.boxShadow = origBoxShadow;
+      targetDoc.style.border = origBorder;
+      targetDoc.style.width = origWidth;
+      targetDoc.style.maxWidth = origMaxWidth;
+      targetDoc.style.padding = origPadding;
       setIsGeneratingPdf(false);
     }
   };
@@ -158,49 +177,42 @@ export default function InformedConsent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans pb-24 print:bg-white print:p-0 print:m-0">
+    <div className="min-h-screen bg-[#F8FAFD] font-sans pb-16 print:bg-white print:p-0 print:m-0">
       {/* Non-print Controls Bar & Header */}
-      <div className="print:hidden">
-        {/* Top App Bar */}
-        <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white py-4 sm:py-5 px-4 sm:px-6 shadow-md sticky top-0 z-30 flex items-center min-h-[72px]">
-          <div className="max-w-5xl mx-auto w-full flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate(-1)}
-                className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 active:scale-95 transition-all cursor-pointer shrink-0"
-              >
-                <ChevronLeft size={22} />
-              </button>
-              <div className="flex flex-col justify-center">
-                <h1 className="text-base sm:text-lg font-black tracking-tight flex items-center gap-2 leading-tight">
-                  <span>INFORMED CONSENT</span>
-                </h1>
-                <p className="text-[11px] sm:text-xs text-slate-300 font-medium leading-tight mt-0.5">
-                  UOBK RSUD Al-Mulk Kota Sukabumi
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handlePrint}
-                className="px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
-              >
-                <Download size={16} />
-                <span className="hidden sm:inline">Cetak Dokumen</span>
-                <span className="sm:hidden">Cetak</span>
-              </button>
-            </div>
+      <div className="print:hidden max-w-5xl mx-auto px-4 pt-2">
+        {/* Top Action Header: Title + Download Icon Only in Top Right Corner */}
+        <div className="flex items-center justify-between gap-4 py-3 border-b border-slate-200/70 mb-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2 leading-tight">
+              <span>INFORMED CONSENT</span>
+            </h1>
+            <p className="text-xs text-slate-500 font-semibold leading-tight mt-1">
+              UOBK RSUD Al-Mulk Kota Sukabumi
+            </p>
           </div>
+
+          {/* Tombol Unduh Dokumen: Hanya Icon Saja di Pojok Kanan Atas */}
+          <button
+            onClick={handlePrint}
+            disabled={isGeneratingPdf || !selectedBooking}
+            title="Unduh / Cetak Dokumen PDF"
+            className="w-11 h-11 rounded-2xl bg-white hover:bg-sky-50 active:scale-95 text-[#0284C7] border border-sky-100 shadow-md shadow-sky-600/10 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 group shrink-0"
+          >
+            {isGeneratingPdf ? (
+              <div className="w-5 h-5 border-2 border-[#0284C7] border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <Download size={20} className="text-[#0284C7] group-hover:scale-110 transition-transform" />
+            )}
+          </button>
         </div>
 
         {/* Patient Selection & Document Tabs Controls */}
-        <div className="max-w-5xl mx-auto px-4 mt-4 space-y-4">
+        <div className="space-y-4">
           {/* Booking Selector Card */}
           {bookings.length > 1 && (
             <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-sky-50 text-[#0284C7] flex items-center justify-center shrink-0">
                   <Users size={18} />
                 </div>
                 <div>
@@ -216,7 +228,7 @@ export default function InformedConsent() {
               <select
                 value={selectedBookingId}
                 onChange={(e) => setSelectedBookingId(e.target.value)}
-                className="w-full sm:w-auto text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full sm:w-auto text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-[#0284C7] cursor-pointer"
               >
                 {bookings.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -228,23 +240,23 @@ export default function InformedConsent() {
           )}
 
           {saveSuccessMsg && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
-              <Check size={16} className="text-blue-600" />
+            <div className="bg-sky-50 border border-sky-200 text-sky-800 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+              <Check size={16} className="text-[#0284C7]" />
               <span>{saveSuccessMsg}</span>
             </div>
           )}
 
-          {/* 3 Document Switcher Tabs */}
-          <div className="grid grid-cols-3 gap-2 bg-slate-200/70 p-1.5 rounded-2xl">
+          {/* 3 Document Switcher Tabs (Sesuai Tema Biru Aplikasi) */}
+          <div className="grid grid-cols-3 gap-2 bg-slate-200/60 p-1.5 rounded-2xl border border-slate-200/50">
             <button
               onClick={() => setActiveDoc('permohonan')}
               className={`py-3 px-2 rounded-xl font-bold text-xs transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 text-center cursor-pointer ${
                 activeDoc === 'permohonan'
-                  ? 'bg-white text-slate-900 shadow-md'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  ? 'bg-white text-[#0284C7] shadow-sm border border-sky-100'
+                  : 'text-slate-600 hover:text-[#0284C7] hover:bg-white/60'
               }`}
             >
-              <FileText size={16} className={activeDoc === 'permohonan' ? 'text-emerald-600' : ''} />
+              <FileText size={16} className={activeDoc === 'permohonan' ? 'text-[#0284C7]' : ''} />
               <span className="leading-tight">1. Form Permohonan</span>
             </button>
 
@@ -252,11 +264,11 @@ export default function InformedConsent() {
               onClick={() => setActiveDoc('consent')}
               className={`py-3 px-2 rounded-xl font-bold text-xs transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 text-center cursor-pointer ${
                 activeDoc === 'consent'
-                  ? 'bg-white text-slate-900 shadow-md'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  ? 'bg-white text-[#0284C7] shadow-sm border border-sky-100'
+                  : 'text-slate-600 hover:text-[#0284C7] hover:bg-white/60'
               }`}
             >
-              <FileCheck2 size={16} className={activeDoc === 'consent' ? 'text-emerald-600' : ''} />
+              <FileCheck2 size={16} className={activeDoc === 'consent' ? 'text-[#0284C7]' : ''} />
               <span className="leading-tight">2. Informed Consent</span>
             </button>
 
@@ -264,11 +276,11 @@ export default function InformedConsent() {
               onClick={() => setActiveDoc('skrining')}
               className={`py-3 px-2 rounded-xl font-bold text-xs transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 text-center cursor-pointer ${
                 activeDoc === 'skrining'
-                  ? 'bg-white text-slate-900 shadow-md'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  ? 'bg-white text-[#0284C7] shadow-sm border border-sky-100'
+                  : 'text-slate-600 hover:text-[#0284C7] hover:bg-white/60'
               }`}
             >
-              <ClipboardCheck size={16} className={activeDoc === 'skrining' ? 'text-emerald-600' : ''} />
+              <ClipboardCheck size={16} className={activeDoc === 'skrining' ? 'text-[#0284C7]' : ''} />
               <span className="leading-tight">3. Form Skrining</span>
             </button>
           </div>
@@ -287,7 +299,7 @@ export default function InformedConsent() {
             </p>
             <button
               onClick={() => navigate('/register')}
-              className="px-6 py-3 rounded-2xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-all cursor-pointer"
+              className="px-6 py-3 rounded-2xl bg-[#0284C7] hover:bg-[#0369A1] text-white font-bold text-xs shadow-md shadow-sky-600/20 transition-all cursor-pointer"
             >
               Mulai Booking Vaksin
             </button>
@@ -319,36 +331,6 @@ export default function InformedConsent() {
           </div>
         )}
       </div>
-
-      {/* Floating Print / Save Action Bar on Mobile */}
-      {selectedBooking && (
-        <div className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto z-40 print:hidden">
-          <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl border border-white/10 flex items-center justify-between gap-3">
-            <div className="text-xs pl-2 min-w-0">
-              <p className="font-bold text-slate-100 truncate">
-                {activeDoc === 'permohonan'
-                  ? 'Formulir Permohonan'
-                  : activeDoc === 'consent'
-                  ? 'Informed Consent'
-                  : 'Form Skrining Medis'}
-              </p>
-              <p className="text-[11px] text-emerald-400 font-medium">
-                Siap Dicetak (F4/Folio)
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={handlePrint}
-                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-md"
-              >
-                <Printer size={15} />
-                <span>Cetak / PDF</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

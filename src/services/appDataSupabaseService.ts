@@ -1,81 +1,42 @@
-import { supabase, isSupabaseConfigured, formatSupabaseErrorMessage } from '../lib/supabase';
+/**
+ * Service Data SIVAKSIN
+ * Dialihkan 100% ke penyimpanan lokal komputer (data/sivaksin_db.json).
+ * Tidak lagi menggunakan Supabase cloud.
+ */
 
-export interface VaccineData {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-  description: string;
-  benefits: string[];
-}
+import {
+  fetchVaccinesLocal,
+  createVaccineLocal,
+  updateVaccineLocal,
+  deleteVaccineLocal,
+  fetchBookingsLocal,
+  createBookingLocal,
+  updateBookingLocal,
+  deleteBookingLocal,
+  fetchUsersLocal,
+  updateUserLocal,
+  fetchSettingsLocal,
+  saveSettingsLocal,
+  fetchDailyReportsLocal,
+  saveDailyReportLocal,
+  fetchStockMutationsLocal,
+  addStockMutationLocal,
+  syncBookingToSimrsLocal,
+  syncAllBookingsToSimrsLocal,
+  getSimrsStatusLocal,
+  type DailyUsageReport,
+  type StockMutation,
+  type LocalVaccine,
+  type LocalBooking,
+  type LocalUser,
+  type LocalSettings
+} from './localDataService';
 
-export interface BookingData {
-  id: string;
-  vaccineId: string;
-  date: string;
-  time: string;
-  status: 'menunggu' | 'terverifikasi' | 'selesai';
-  patient: any;
-  user_id?: string;
-  created_at?: string;
-}
-
-export interface UserProfileData {
-  id: string;
-  username: string;
-  name?: string;
-  email?: string;
-  role?: string;
-  nik?: string;
-  no_hp?: string;
-  alamat?: string;
-  no_passport?: string;
-  avatar_url?: string;
-  ktp_url?: string;
-  passport_url?: string;
-}
-
-export interface AppSettingsData {
-  id?: string;
-  app_logo?: string;
-  doc_logo_left?: string;
-  doc_logo_right?: string;
-  hero_bg_image?: string;
-  hospital_name?: string;
-  phone?: string;
-  address?: string;
-  eicv_stock?: number;
-  eicv_status?: string;
-  eicv_note?: string;
-  updated_at?: string;
-}
-
-const DEFAULT_VACCINES: VaccineData[] = [
-  {
-    id: 'v1',
-    name: 'Meningitis Vaccine (Menveo)',
-    price: 350000,
-    stock: 120,
-    description: 'Vaksin wajib untuk jamaah umroh dan haji.',
-    benefits: ['Perlindungan dari radang selaput otak', 'Sertifikat Internasional (ICV)']
-  },
-  {
-    id: 'v2',
-    name: 'Polio Vaccine (OPV/IPV)',
-    price: 150000,
-    stock: 50,
-    description: 'Vaksin tambahan yang diwajibkan beberapa negara.',
-    benefits: ['Mencegah kelumpuhan akibat virus polio', 'Aman untuk dewasa']
-  },
-  {
-    id: 'v3',
-    name: 'Influenza Vaccine (Vaxigrip)',
-    price: 300000,
-    stock: 200,
-    description: 'Perlindungan flu tahunan untuk perjalanan wisata atau tugas kerja.',
-    benefits: ['Mencegah infeksi virus influenza A dan B', 'Mengurangi risiko komplikasi pernapasan']
-  }
-];
+export interface VaccineData extends LocalVaccine {}
+export interface BookingData extends LocalBooking {}
+export interface UserProfileData extends LocalUser {}
+export interface AppSettingsData extends LocalSettings {}
+export type { DailyUsageReport, StockMutation };
 
 // ==========================================
 // 1. VAKSIN SERVICES
@@ -84,33 +45,11 @@ export const fetchVaccinesFromSupabase = async (): Promise<{
   vaccines: VaccineData[] | null;
   error: string | null;
 }> => {
-  if (!isSupabaseConfigured) return { vaccines: null, error: 'Supabase tidak aktif' };
-
   try {
-    const timeoutPromise = new Promise<{ data: null; error: any }>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout mengambil data vaksin')), 6000)
-    );
-
-    const query = supabase.from('vaccines').select('*').order('id', { ascending: true });
-    const { data, error } = (await Promise.race([query, timeoutPromise])) as any;
-
-    if (error) {
-      return { vaccines: null, error: formatSupabaseErrorMessage(error) };
-    }
-
-    // Jika tabel ada tapi kosong, bantu inisialisasi / seed data default ke Supabase
-    if (!data || data.length === 0) {
-      try {
-        await supabase.from('vaccines').upsert(DEFAULT_VACCINES);
-        return { vaccines: DEFAULT_VACCINES, error: null };
-      } catch (seedErr) {
-        console.warn('Seed vaccines note:', seedErr);
-      }
-    }
-
-    return { vaccines: data as VaccineData[], error: null };
+    const list = await fetchVaccinesLocal();
+    return { vaccines: list, error: null };
   } catch (err: any) {
-    return { vaccines: null, error: formatSupabaseErrorMessage(err) };
+    return { vaccines: null, error: err.message || 'Gagal memuat vaksin lokal' };
   }
 };
 
@@ -118,271 +57,119 @@ export const updateVaccineStockInSupabase = async (
   id: string,
   newStock: number
 ): Promise<{ success: boolean; error: string | null }> => {
-  if (!isSupabaseConfigured) return { success: true, error: null };
-
-  try {
-    const { error } = await supabase.from('vaccines').update({ stock: newStock }).eq('id', id);
-    if (error) {
-      return { success: false, error: formatSupabaseErrorMessage(error) };
-    }
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: formatSupabaseErrorMessage(err) };
-  }
+  const res = await updateVaccineLocal(id, { stock: newStock });
+  return { success: res.success, error: res.error || null };
 };
 
 export const createVaccineInSupabase = async (
   vaccine: VaccineData
 ): Promise<{ success: boolean; error: string | null }> => {
-  if (!isSupabaseConfigured) return { success: true, error: null };
-
-  try {
-    const { error } = await supabase.from('vaccines').insert([vaccine]);
-    if (error) {
-      return { success: false, error: formatSupabaseErrorMessage(error) };
-    }
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: formatSupabaseErrorMessage(err) };
-  }
+  const res = await createVaccineLocal(vaccine);
+  return { success: res.success, error: res.error || null };
 };
 
 export const updateVaccineInSupabase = async (
   id: string,
   updates: Partial<VaccineData>
 ): Promise<{ success: boolean; error: string | null }> => {
-  if (!isSupabaseConfigured) return { success: true, error: null };
-
-  try {
-    const { error } = await supabase.from('vaccines').update(updates).eq('id', id);
-    if (error) {
-      return { success: false, error: formatSupabaseErrorMessage(error) };
-    }
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: formatSupabaseErrorMessage(err) };
-  }
+  const res = await updateVaccineLocal(id, updates);
+  return { success: res.success, error: res.error || null };
 };
 
 export const deleteVaccineFromSupabase = async (
   id: string
 ): Promise<{ success: boolean; error: string | null }> => {
-  if (!isSupabaseConfigured) return { success: true, error: null };
-
-  try {
-    const { error } = await supabase.from('vaccines').delete().eq('id', id);
-    if (error) {
-      return { success: false, error: formatSupabaseErrorMessage(error) };
-    }
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: formatSupabaseErrorMessage(err) };
-  }
+  const res = await deleteVaccineLocal(id);
+  return { success: res.success, error: res.error || null };
 };
 
 // ==========================================
-// 2. BOOKINGS / RESERVASI SERVICES
+// 2. BOOKING / PENDAFTARAN SERVICES
 // ==========================================
 export const fetchBookingsFromSupabase = async (
-  userId?: string,
-  role?: string
-): Promise<{ bookings: BookingData[] | null; error: string | null }> => {
-  if (!isSupabaseConfigured) return { bookings: null, error: 'Supabase tidak aktif' };
-
+  _userId?: string,
+  _role?: string
+): Promise<{
+  bookings: BookingData[] | null;
+  error: string | null;
+}> => {
   try {
-    const timeoutPromise = new Promise<{ data: null; error: any }>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout mengambil data reservasi')), 6000)
-    );
-
-    let query = supabase.from('bookings').select('*').order('created_at', { ascending: false });
-
-    // Jika bukan admin dan ada userId, filter berdasarkan user_id
-    if (role !== 'admin' && userId) {
-      query = query.eq('user_id', userId);
-    }
-
-    const { data, error } = (await Promise.race([query, timeoutPromise])) as any;
-
-    if (error) {
-      return { bookings: null, error: formatSupabaseErrorMessage(error) };
-    }
-
-    return { bookings: data as BookingData[], error: null };
+    const list = await fetchBookingsLocal();
+    return { bookings: list, error: null };
   } catch (err: any) {
-    return { bookings: null, error: formatSupabaseErrorMessage(err) };
+    return { bookings: null, error: err.message || 'Gagal memuat booking lokal' };
   }
 };
 
 export const createBookingInSupabase = async (
   booking: BookingData
-): Promise<{ booking: BookingData | null; error: string | null }> => {
-  if (!isSupabaseConfigured) return { booking, error: null };
+): Promise<{ success: boolean; booking?: BookingData; error: string | null }> => {
+  const res = await createBookingLocal(booking);
+  return { success: res.success, booking, error: res.error || null };
+};
 
-  try {
-    const payload = {
-      id: booking.id,
-      user_id: booking.user_id || null,
-      vaccineId: booking.vaccineId,
-      date: booking.date,
-      time: booking.time,
-      status: booking.status || 'menunggu',
-      patient: booking.patient,
-      created_at: new Date().toISOString()
-    };
+// ==========================================
+// 3. DAILY REPORTS & STOCK MUTATIONS
+// ==========================================
+export const fetchDailyReportsFromSupabase = async (params?: { from?: string; to?: string; vaccine?: string }): Promise<DailyUsageReport[]> => {
+  return await fetchDailyReportsLocal(params);
+};
 
-    const timeoutPromise = new Promise<{ data: null; error: any }>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout menyimpan reservasi')), 8000)
-    );
+export const saveDailyReportToSupabase = async (report: Partial<DailyUsageReport>): Promise<{ success: boolean; report?: DailyUsageReport; error?: string }> => {
+  return await saveDailyReportLocal(report);
+};
 
-    const insertPromise = supabase.from('bookings').insert([payload]).select().single();
-    const { data, error } = (await Promise.race([insertPromise, timeoutPromise])) as any;
+export const fetchStockMutationsFromSupabase = async (params?: { from?: string; to?: string; type?: string }): Promise<StockMutation[]> => {
+  return await fetchStockMutationsLocal(params);
+};
 
-    if (error) {
-      return { booking: null, error: formatSupabaseErrorMessage(error) };
-    }
-
-    return { booking: data as BookingData, error: null };
-  } catch (err: any) {
-    return { booking: null, error: formatSupabaseErrorMessage(err) };
-  }
+export const addStockMutationToSupabase = async (mutation: any): Promise<{ success: boolean; mutation?: StockMutation; updated_stock?: number; error?: string }> => {
+  return await addStockMutationLocal(mutation);
 };
 
 export const updateBookingStatusInSupabase = async (
   id: string,
-  status: 'menunggu' | 'terverifikasi' | 'selesai'
+  status: BookingData['status']
 ): Promise<{ success: boolean; error: string | null }> => {
-  if (!isSupabaseConfigured) return { success: true, error: null };
+  const res = await updateBookingLocal(id, { status });
+  return { success: res.success, error: res.error || null };
+};
 
-  try {
-    const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
-    if (error) {
-      return { success: false, error: formatSupabaseErrorMessage(error) };
-    }
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: formatSupabaseErrorMessage(err) };
-  }
+export const updateBookingInSupabase = async (
+  id: string,
+  updates: Partial<BookingData>
+): Promise<{ success: boolean; error: string | null }> => {
+  const res = await updateBookingLocal(id, updates);
+  return { success: res.success, error: res.error || null };
 };
 
 export const deleteBookingInSupabase = async (
   id: string
 ): Promise<{ success: boolean; error: string | null }> => {
-  if (!isSupabaseConfigured) return { success: true, error: null };
-
-  try {
-    const { error } = await supabase.from('bookings').delete().eq('id', id);
-    if (error) {
-      return { success: false, error: formatSupabaseErrorMessage(error) };
-    }
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: formatSupabaseErrorMessage(err) };
-  }
+  const res = await deleteBookingLocal(id);
+  return { success: res.success, error: res.error || null };
 };
 
 // ==========================================
-// 3. USER PROFILE SERVICES
+// 3. PROFIL & USER SERVICES
 // ==========================================
 export const fetchUserProfileFromSupabase = async (
   userId: string
 ): Promise<{ profile: UserProfileData | null; error: string | null }> => {
-  if (!isSupabaseConfigured) return { profile: null, error: 'Supabase tidak aktif' };
-
   try {
-    const timeoutPromise = new Promise<{ data: null; error: any }>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout mengambil profil')), 6000)
-    );
-
-    let query = supabase.from('users').select('*').eq('id', userId).maybeSingle();
-    let { data, error } = (await Promise.race([query, timeoutPromise])) as any;
-
-    // Jika tidak ditemukan dengan ID dan bukan UUID, coba cari via username atau email
-    if (!data && !error && userId) {
-      const fallbackQuery = supabase
-        .from('users')
-        .select('*')
-        .or(`username.eq.${userId},email.eq.${userId}`)
-        .maybeSingle();
-      const fallbackRes = (await Promise.race([fallbackQuery, timeoutPromise])) as any;
-      if (fallbackRes.data) {
-        data = fallbackRes.data;
-        error = null;
-      }
-    }
-
-    if (error) {
-      return { profile: null, error: formatSupabaseErrorMessage(error) };
-    }
-
-    return { profile: data as UserProfileData, error: null };
+    const users = await fetchUsersLocal();
+    const found = users.find(u => u.id === userId || u.username === userId || u.email === userId);
+    return { profile: found || null, error: null };
   } catch (err: any) {
-    return { profile: null, error: formatSupabaseErrorMessage(err) };
+    return { profile: null, error: err.message || 'Gagal memuat profil user lokal' };
   }
 };
 
 export const upsertUserProfileToSupabase = async (
   userData: Partial<UserProfileData> & { id: string }
 ): Promise<{ success: boolean; error: string | null }> => {
-  if (!isSupabaseConfigured) return { success: true, error: null };
-
-  try {
-    const rawUsername = userData.username || userData.name || (userData.email ? userData.email.split('@')[0] : '') || userData.id;
-
-    const basePayload: any = {
-      id: userData.id,
-      username: rawUsername,
-      name: userData.name || userData.username || 'Pengguna',
-      email: userData.email || '',
-      role: userData.role || 'user',
-      nik: userData.nik ?? null,
-      no_hp: userData.no_hp ?? null,
-      alamat: userData.alamat ?? null,
-      no_passport: userData.no_passport ?? null,
-      avatar_url: userData.avatar_url ?? null,
-      ktp_url: userData.ktp_url ?? null,
-      passport_url: userData.passport_url ?? null,
-    };
-
-    const timeoutPromise = new Promise<{ error: any }>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout menyimpan profil ke Supabase')), 8000)
-    );
-
-    // 1. Attempt standard upsert
-    let { error } = (await Promise.race([
-      supabase.from('users').upsert(basePayload, { onConflict: 'id' }),
-      timeoutPromise
-    ])) as any;
-
-    // 2. Fallback to direct update or insert if upsert fails
-    if (error) {
-      console.warn('Upsert profil attempt 1 warning, attempting direct update/insert:', error.message);
-      const updateRes = (await Promise.race([
-        supabase.from('users').update(basePayload).eq('id', userData.id),
-        timeoutPromise
-      ])) as any;
-
-      if (!updateRes?.error) {
-        error = null;
-      } else {
-        const insertRes = (await Promise.race([
-          supabase.from('users').insert([basePayload]),
-          timeoutPromise
-        ])) as any;
-        if (!insertRes?.error) {
-          error = null;
-        } else {
-          error = insertRes.error;
-        }
-      }
-    }
-
-    if (error) {
-      return { success: false, error: formatSupabaseErrorMessage(error) };
-    }
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: formatSupabaseErrorMessage(err) };
-  }
+  const res = await updateUserLocal(userData.id, userData);
+  return { success: res.success, error: res.error || null };
 };
 
 // ==========================================
@@ -392,69 +179,26 @@ export const fetchAppSettingsFromSupabase = async (): Promise<{
   settings: AppSettingsData | null;
   error: string | null;
 }> => {
-  if (!isSupabaseConfigured) return { settings: null, error: 'Supabase tidak aktif' };
-
   try {
-    // Gunakan storage 'assets' untuk menyimpan settings agar tidak butuh migrasi SQL
-    const { data, error } = await supabase.storage.from('assets').download('app_settings/main_config.json');
-    if (error) {
-      if (error.message.includes('not found') || error.message.includes('Object not found') || error.statusCode === '404') {
-        return { settings: null, error: null };
-      }
-      return { settings: null, error: formatSupabaseErrorMessage(error) };
-    }
-    
-    if (data) {
-      const text = await data.text();
-      const settings = JSON.parse(text) as AppSettingsData;
-      return { settings, error: null };
-    }
-    
-    return { settings: null, error: null };
+    const settings = await fetchSettingsLocal();
+    return { settings, error: null };
   } catch (err: any) {
-    return { settings: null, error: formatSupabaseErrorMessage(err) };
+    return { settings: null, error: err.message || 'Gagal memuat pengaturan lokal' };
   }
 };
 
 export const saveAppSettingsToSupabase = async (
   settings: Partial<AppSettingsData>
 ): Promise<{ success: boolean; error: string | null }> => {
-  if (!isSupabaseConfigured) return { success: true, error: null };
-
-  try {
-    // Ambil setting sebelumnya terlebih dahulu
-    let existingSettings: AppSettingsData = {};
-    const { settings: currentSettings } = await fetchAppSettingsFromSupabase();
-    if (currentSettings) {
-      existingSettings = currentSettings;
-    }
-
-    const payload = {
-      ...existingSettings,
-      ...settings,
-      id: 'main_config',
-      updated_at: new Date().toISOString()
-    };
-
-    const file = new File([JSON.stringify(payload)], 'main_config.json', { type: 'application/json' });
-
-    let { error } = await supabase.storage.from('assets').upload('app_settings/main_config.json', file, {
-      cacheControl: '3600',
-      upsert: true
-    });
-    
-    if (error && (error.message?.includes('Bucket not found') || error.statusCode === '404')) {
-      await supabase.storage.createBucket('assets', { public: true });
-      const retry = await supabase.storage.from('assets').upload('app_settings/main_config.json', file, {
-        cacheControl: '3600',
-        upsert: true
-      });
-      error = retry.error;
-    }
-
-    if (error) return { success: false, error: formatSupabaseErrorMessage(error) };
-    return { success: true, error: null };
-  } catch (err: any) {
-    return { success: false, error: formatSupabaseErrorMessage(err) };
-  }
+  const res = await saveSettingsLocal(settings);
+  return { success: res.success, error: res.error || null };
 };
+
+export { 
+  triggerApiikSyncLocal, 
+  getApiikSyncStatusLocal,
+  syncBookingToSimrsLocal,
+  syncAllBookingsToSimrsLocal,
+  getSimrsStatusLocal,
+  postponeBookingLocal
+} from './localDataService';

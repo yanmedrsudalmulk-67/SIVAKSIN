@@ -1,3 +1,4 @@
+import UserRecap from '../components/UserRecap';
 import React, { useState, useRef } from 'react';
 import { useAppStore } from '../store/AppContext';
 import { 
@@ -15,6 +16,7 @@ import SkriningVaksinDoc from '../components/documents/SkriningVaksinDoc';
 
 export default function Admin() {
   const { 
+    role,
     bookings, 
     vaccines, 
     updateBookingStatus, 
@@ -30,7 +32,7 @@ export default function Admin() {
     uploadOfficialEicv
   } = useAppStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'bookings' | 'stock' | 'history'>('bookings');
+  const [activeTab, setActiveTab] = useState<'bookings' | 'stock' | 'history' | 'users'>('bookings');
   
   // Modal states
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
@@ -60,12 +62,12 @@ export default function Admin() {
 
   const handleUploadEicvSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPatient || !eicvFile) return;
+    if (role !== 'admin' || !selectedPatient || !eicvFile) return;
+    if (eicvFile.type !== 'application/pdf' || eicvFile.size > 10 * 1024 * 1024) { alert('Pilih PDF maksimal 10 MB.'); return; }
 
     setIsUploadingEicv(true);
     try {
-      const uploadRes = await uploadFileToSupabase(eicvFile, 'documents', `eicv_${selectedPatient.id}`);
-      const uploadedUrl = uploadRes.url || '';
+      const uploadedUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = reject; reader.readAsDataURL(eicvFile); });
       const fileName = eicvFile.name;
 
       await uploadOfficialEicv(selectedPatient.id, uploadedUrl, fileName);
@@ -84,7 +86,7 @@ export default function Admin() {
 
       setEicvFile(null);
       if (eicvFileInputRef.current) eicvFileInputRef.current.value = '';
-      setAdminFeedback(`Sertifikat E-ICV Resmi berhasil diunggah ke Cloud Storage & otomatis terbit untuk ${selectedPatient.patient?.name}!`);
+      setAdminFeedback(`Sertifikat E-ICV Resmi berhasil diunggah dan tersimpan untuk akun peserta untuk ${selectedPatient.patient?.name}!`);
       setTimeout(() => setAdminFeedback(null), 6000);
     } catch (err: any) {
       alert('Gagal mengupload E-ICV: ' + err.message);
@@ -247,6 +249,8 @@ export default function Admin() {
     }
   };
 
+  if (role !== 'admin') return <div className="max-w-lg mx-auto p-10 text-center"><ShieldCheck className="mx-auto text-emerald-700" size={36}/><h1 className="text-xl font-semibold mt-4">Akses khusus admin</h1><p className="text-slate-500 mt-2">Masuk dengan akun admin untuk mengelola data peserta.</p><button onClick={() => navigate('/login')} className="mt-6 text-emerald-700 font-semibold">Masuk sebagai admin</button></div>;
+
   // Filtered Bookings
   const filteredBookings = bookings.filter(b => {
     if (!searchQuery.trim()) return true;
@@ -340,7 +344,7 @@ export default function Admin() {
           </div>
         </div>
 
-        <div className="flex bg-slate-200/50 p-1 rounded-xl mb-6 overflow-x-auto hide-scrollbar max-w-lg">
+        <div className="flex bg-slate-200/50 p-1 rounded-xl mb-6 overflow-x-auto hide-scrollbar max-w-3xl">
           <button 
             onClick={() => setActiveTab('bookings')}
             className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'bookings' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500'}`}
@@ -359,13 +363,16 @@ export default function Admin() {
           >
             Riwayat Pasien
           </button>
+          <button onClick={() => setActiveTab('users')} className={`flex-1 min-w-[140px] py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'users' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>Rekap Akun</button>
         </div>
+
+        {activeTab === 'users' && <UserRecap bookings={bookings} onOpenBooking={booking => { setSelectedPatient(booking); setEicvFile(null); }} />}
 
         {activeTab === 'bookings' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-bold text-slate-800">Daftar Reservasi Terbaru</h3>
-              <span className="text-xs text-slate-500">Tersinkronisasi otomatis ke Supabase Cloud</span>
+              <span className="text-xs text-slate-500">Data tersimpan di server SIVAKSIN</span>
             </div>
             
             {bookings.length === 0 && <p className="text-center text-slate-500 py-10 text-sm">Belum ada data booking.</p>}
@@ -1243,7 +1250,7 @@ export default function Admin() {
                      </div>
                   </div>
 
-                  {/* Manajemen E-ICV Resmi (Upload & Penerbitan ke Supabase Storage) */}
+                  {/* Manajemen E-ICV Resmi (Upload & Penerbitan ke penyimpanan lokal server) */}
                   <div className="border-t border-slate-200/80 pt-4">
                      <div className="flex items-center justify-between mb-2.5">
                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Penerbitan Dokumen Resmi E-ICV</p>
@@ -1302,14 +1309,14 @@ export default function Admin() {
                            <Upload size={14} className="text-brand-600" />
                            <span>{selectedPatient.patient?.e_icv_url ? 'Perbarui / Unggah Ulang File E-ICV Resmi' : 'Upload Dokumen Resmi E-ICV Pasien'}</span>
                          </label>
-                         <span className="text-[10px] text-slate-400 font-medium">Format: PDF, JPG, PNG (Maks 10MB)</span>
+                         <span className="text-[10px] text-slate-400 font-medium">Format: PDF (maksimal 10 MB)</span>
                        </div>
 
                        <div className="flex items-center gap-2.5">
                          <input
                            ref={eicvFileInputRef}
                            type="file"
-                           accept=".pdf,image/png,image/jpeg,image/jpg"
+                           accept="application/pdf,.pdf"
                            onChange={(e) => {
                              if (e.target.files && e.target.files[0]) {
                                setEicvFile(e.target.files[0]);
@@ -1358,7 +1365,7 @@ export default function Admin() {
                        )}
 
                        <p className="text-[10px] text-slate-500 leading-relaxed">
-                         * File akan disimpan secara aman di <strong>Supabase Storage</strong>, mengubah status pendaftaran menjadi <strong>'Selesai'</strong>, dan mengirimkan notifikasi resmi ke akun jamaah bahwa dokumen E-ICV sudah siap diunduh.
+                         * File akan disimpan secara aman di <strong>penyimpanan lokal server</strong>, mengubah status pendaftaran menjadi <strong>'Selesai'</strong>, dan mengirimkan notifikasi resmi ke akun jamaah bahwa dokumen E-ICV sudah siap diunduh.
                        </p>
                      </form>
 

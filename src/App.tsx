@@ -32,7 +32,7 @@ export default function App() {
           <Route path="/signup" element={<Signup />} />
           
           <Route element={<MobileLayout />}>
-            <Route path="/" element={<Navigate to="/splash" replace />} />
+            <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/home" element={<Home />} />
             <Route path="/register" element={<Register />} />
             <Route path="/history" element={<History />} />
@@ -42,9 +42,9 @@ export default function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/certificate" element={<Certificate />} />
             <Route path="/status" element={<Status />} />
+            <Route path="/anafilaktik" element={<AnafilaktikKit />} />
           </Route>
 
-          <Route path="/anafilaktik" element={<AnafilaktikKit />} />
           <Route path="/admin" element={<Admin />} />
         </Routes>
       </BrowserRouter>

@@ -1,10 +1,16 @@
-import { supabase, isSupabaseConfigured, formatSupabaseErrorMessage } from '../lib/supabase';
+/**
+ * Service Penyimpanan File & Dokumen Lokal
+ * File disimpan langsung ke folder komputer: public/uploads/
+ */
+
+import { uploadFileLocal } from './localDataService';
 
 export interface StorageUploadResult {
   url: string | null;
   path: string | null;
   fileName: string | null;
   error: string | null;
+  success?: boolean;
 }
 
 /**
@@ -61,150 +67,42 @@ export const compressImage = async (
 };
 
 /**
- * Unggah file gambar atau dokumen langsung ke Supabase Storage (bucket assets, documents, atau avatars).
- * Dilengkapi kompresi otomatis, multi-bucket fallback, timeout proteksi, dan graceful fallback.
+ * Unggah file gambar atau dokumen langsung ke penyimpanan lokal komputer.
  */
 export const uploadFileToSupabase = async (
   file: File | Blob,
-  bucketName: 'assets' | 'documents' | 'avatars' = 'assets',
+  _bucketName: 'assets' | 'documents' | 'avatars' = 'assets',
   prefix = 'doc'
 ): Promise<StorageUploadResult> => {
-  // Jika Supabase tidak dikonfigurasi, sediakan fallback data URL lokal
-  if (!isSupabaseConfigured) {
-    if (file instanceof File || file instanceof Blob) {
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve) => {
-        reader.onload = (e) => resolve((e.target?.result as string) || '');
-        reader.readAsDataURL(file);
-      });
-      return {
-        url: dataUrl,
-        path: null,
-        fileName: file instanceof File ? file.name : `${prefix}.jpg`,
-        error: null
-      };
-    }
-    return {
-      url: null,
-      path: null,
-      fileName: null,
-      error: 'Supabase belum dikonfigurasi. Hubungkan kredensial Supabase terlebih dahulu.'
-    };
-  }
-
   try {
     let uploadPayload: Blob = file;
-    let fileExt = 'bin';
 
-    if (file instanceof File) {
-      const parts = file.name.split('.');
-      if (parts.length > 1) {
-        fileExt = parts.pop()?.toLowerCase() || 'bin';
-      }
-
-      // Jika gambar (jpg, png, webp, dsb), kompresi terlebih dahulu agar hemat memori & kilat diunggah
-      if (file.type.startsWith('image/')) {
-        try {
-          const { blob } = await compressImage(file, 1200, 0.85);
-          uploadPayload = blob;
-          fileExt = 'jpg';
-        } catch (compErr) {
-          console.warn('Kompresi gambar dilewati, menggunakan file asli:', compErr);
-        }
-      }
-    } else {
-      fileExt = 'jpg';
-    }
-
-    const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    const cleanFileName = `${prefix}_${uniqueId}.${fileExt}`;
-    const filePath = `${cleanFileName}`;
-
-    // Race timeout 12 detik agar tidak menggantung jika koneksi lemot
-    const timeoutPromise = new Promise<{ data: null; error: any }>((_, reject) =>
-      setTimeout(() => reject(new Error('Upload timeout ke Supabase Storage (12s)')), 12000)
-    );
-
-    // Coba upload ke target bucket
-    const targetBuckets: Array<'assets' | 'documents' | 'avatars'> = [
-      bucketName,
-      bucketName === 'assets' ? 'documents' : 'assets',
-      'avatars'
-    ];
-
-    let lastError: any = null;
-    let successfulBucket: string | null = null;
-    let uploadSuccessData: any = null;
-
-    for (const b of targetBuckets) {
+    // Jika gambar, kompresi terlebih dahulu
+    if (file instanceof File && file.type.startsWith('image/')) {
       try {
-        let uploadPromise = supabase.storage.from(b).upload(filePath, uploadPayload, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: file instanceof File ? file.type : 'image/jpeg'
-        });
-
-        let res = (await Promise.race([uploadPromise, timeoutPromise])) as any;
-        
-        // If bucket not found, attempt to create bucket and retry upload
-        if (res?.error && (res.error.message?.includes('Bucket not found') || res.error.statusCode === '404' || res.error.status === 404)) {
-          try {
-            await supabase.storage.createBucket(b, { public: true });
-            uploadPromise = supabase.storage.from(b).upload(filePath, uploadPayload, {
-              cacheControl: '3600',
-              upsert: true,
-              contentType: file instanceof File ? file.type : 'image/jpeg'
-            });
-            res = (await Promise.race([uploadPromise, timeoutPromise])) as any;
-          } catch (createErr) {
-            console.warn('Auto create bucket note:', createErr);
-          }
-        }
-
-        if (!res?.error && res?.data) {
-          uploadSuccessData = res.data;
-          successfulBucket = b;
-          lastError = null;
-          break;
-        } else {
-          lastError = res?.error;
-        }
-      } catch (err) {
-        lastError = err;
+        const { blob } = await compressImage(file, 1200, 0.85);
+        uploadPayload = blob;
+      } catch (e) {
+        console.warn('Kompresi dilewati:', e);
       }
     }
 
-    if (successfulBucket && uploadSuccessData) {
-      // Dapatkan URL publik file dari Supabase Storage
-      const { data: urlData } = supabase.storage.from(successfulBucket).getPublicUrl(filePath);
-      return {
-        url: urlData.publicUrl,
-        path: filePath,
-        fileName: cleanFileName,
-        error: null
-      };
-    }
-
-    // Jika bucket di Supabase belum ada atau storage bermasalah, fallback ke base64 data URL agar data foto tidak hilang
-    console.warn('Supabase storage upload error, fallback to optimized data URL:', lastError);
-    const reader = new FileReader();
-    const dataUrl = await new Promise<string>((resolve) => {
-      reader.onload = (e) => resolve((e.target?.result as string) || '');
-      reader.readAsDataURL(uploadPayload);
-    });
+    const res = await uploadFileLocal(uploadPayload, prefix);
 
     return {
-      url: dataUrl,
-      path: null,
-      fileName: cleanFileName,
-      error: lastError ? formatSupabaseErrorMessage(lastError) : null
+      url: res.url,
+      path: res.url,
+      fileName: res.fileName,
+      error: res.error,
+      success: !res.error && !!res.url
     };
   } catch (err: any) {
     return {
       url: null,
       path: null,
       fileName: null,
-      error: formatSupabaseErrorMessage(err)
+      error: err.message || 'Gagal menyimpan file lokal',
+      success: false
     };
   }
 };

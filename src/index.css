@@ -34,6 +34,22 @@ body {
   background-color: #f8fafc;
   color: #0f172a;
   -webkit-tap-highlight-color: transparent;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera across all elements */
+html, body, * {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
 }
 
 .glass {
@@ -110,6 +126,17 @@ body {
   animation-delay: 2s;
 }
 
+/* Indonesian Folio / F4 Paper Standards (215mm x 330mm) */
+.print-document-f4 {
+  width: 100%;
+  max-width: 215mm;
+  min-height: 330mm;
+  box-sizing: border-box;
+  background-color: #ffffff;
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
 @media print {
   html, body {
     background: #ffffff !important;
@@ -123,6 +150,17 @@ body {
   @page {
     size: 215mm 330mm;
     margin: 0;
+  }
+
+  .print-document-f4 {
+    width: 215mm !important;
+    max-width: 215mm !important;
+    min-height: 330mm !important;
+    margin: 0 auto !important;
+    padding: 10mm 14mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    box-sizing: border-box !important;
   }
 
   /* Force exact background colors, borders, badges, and text colors */

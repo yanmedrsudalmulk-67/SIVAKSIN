@@ -134,11 +134,9 @@ export default function Profile() {
     try {
       let finalUrl = heroBgPreview;
       if (heroBgFile) {
-        if (isSupabaseConfigured) {
-          const cloudRes = await uploadFileToSupabase(heroBgFile, 'assets', 'hero_bg');
-          if (cloudRes.success && cloudRes.url) {
-            finalUrl = cloudRes.url;
-          }
+        const cloudRes = await uploadFileToSupabase(heroBgFile, 'assets', 'hero_bg');
+        if (cloudRes.url) {
+          finalUrl = cloudRes.url;
         }
       }
       await setHeroBgImage(finalUrl);
@@ -2536,8 +2534,8 @@ export default function Profile() {
             />
             <MenuItem 
               icon={<Database className="text-emerald-600" />} 
-              label="Integrasi & Database Supabase Cloud" 
-              sublabel="Pengaturan sinkronisasi database cloud realtime"
+              label="Penyimpanan & Database Lokal Komputer" 
+              sublabel="Status database lokal (data/sivaksin_db.json) & backup"
               onClick={() => setIsSupabaseModalOpen(true)} 
             />
           </div>

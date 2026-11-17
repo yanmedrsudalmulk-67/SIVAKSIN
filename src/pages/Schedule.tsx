@@ -80,11 +80,13 @@ export default function Schedule() {
       return true;
     });
 
-    // Sort chronologically
+    // Sort: untuk menu 'Semua' (all), urutkan dari tanggal TERBARU di paling atas ke TERLAMA di paling bawah
     return list.sort((a, b) => {
       const dateA = getBookingDate(a)?.getTime() || 0;
       const dateB = getBookingDate(b)?.getTime() || 0;
-      if (dateA !== dateB) return dateA - dateB;
+      if (dateA !== dateB) {
+        return filterPeriod === 'all' ? dateB - dateA : dateA - dateB;
+      }
       const timeA = a.time || '';
       const timeB = b.time || '';
       return timeA.localeCompare(timeB);
@@ -105,8 +107,12 @@ export default function Schedule() {
       groups[key].items.push(b);
     });
 
-    return Object.values(groups).sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [processedBookings]);
+    return Object.values(groups).sort((a, b) =>
+      filterPeriod === 'all'
+        ? b.date.getTime() - a.date.getTime()
+        : a.date.getTime() - b.date.getTime()
+    );
+  }, [processedBookings, filterPeriod]);
 
   // Calendar dates calculation
   const calendarDays = useMemo(() => {
@@ -154,79 +160,111 @@ export default function Schedule() {
   }, [bookings, selectedDay]);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans pb-24">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white pt-safe pb-6 px-4 shadow-md sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+    <div className="font-sans pb-24 max-w-5xl mx-auto px-2 sm:px-4 space-y-5">
+      {/* Header Card (Rounded & Centered Title) */}
+      <div className="bg-gradient-to-r from-[#0038D1] via-[#1D4ED8] to-[#1E40AF] text-white rounded-3xl px-5 sm:px-7 py-5 sm:py-6 shadow-[0_12px_35px_-5px_rgba(0,56,209,0.28)] border border-white/15">
+        <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-4">
+          {/* Left: Back Button */}
+          <div className="flex items-center justify-between sm:justify-start">
             <button
               onClick={() => navigate('/home')}
-              className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center text-white hover:bg-white/25 active:scale-95 transition-all cursor-pointer"
+              title="Kembali ke Beranda"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center text-white active:scale-95 transition-all cursor-pointer shrink-0"
             >
-              <ChevronLeft size={22} />
+              <ChevronLeft size={22} strokeWidth={2.5} />
             </button>
-            <div>
-              <h1 className="text-lg font-black tracking-tight flex items-center gap-2">
-                <span>JADWAL VAKSINASI</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-400/30 text-blue-200 border border-blue-300/30">
-                  Senin - Jum'at
-                </span>
-              </h1>
-              <p className="text-xs text-blue-100 font-medium">
-                08.00 - 14.00 WIB • RSUD Al-Mulk Kota Sukabumi
-              </p>
+
+            {/* Mobile Switcher */}
+            <div className="flex sm:hidden bg-blue-950/50 p-1 rounded-2xl border border-white/10">
+              <button
+                onClick={() => setViewMode('agenda')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'agenda'
+                    ? 'bg-white text-blue-900 shadow-sm'
+                    : 'text-blue-100 hover:text-white'
+                }`}
+              >
+                Agenda
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'calendar'
+                    ? 'bg-white text-blue-900 shadow-sm'
+                    : 'text-blue-100 hover:text-white'
+                }`}
+              >
+                Kalender
+              </button>
             </div>
           </div>
 
-          {/* Switcher View: Agenda vs Calendar */}
-          <div className="flex bg-blue-900/60 p-1 rounded-2xl border border-white/10">
-            <button
-              onClick={() => setViewMode('agenda')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'agenda'
-                  ? 'bg-white text-blue-900 shadow-sm'
-                  : 'text-blue-100 hover:text-white'
-              }`}
-            >
-              Agenda
-            </button>
-            <button
-              onClick={() => setViewMode('calendar')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'calendar'
-                  ? 'bg-white text-blue-900 shadow-sm'
-                  : 'text-blue-100 hover:text-white'
-              }`}
-            >
-              Kalender
-            </button>
+          {/* Center: Title & Subtitle Centered Vertically and Horizontally */}
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-white leading-none">
+                JADWAL VAKSINASI
+              </h1>
+              <span className="text-[10px] uppercase font-extrabold tracking-wider px-2.5 py-0.5 rounded-full bg-white/15 text-blue-100 border border-white/20">
+                Senin - Jum'at
+              </span>
+            </div>
+            <p className="text-xs text-blue-100/95 font-medium mt-1.5 leading-snug">
+              08.00 - 14.00 WIB • RSUD Al-Mulk Kota Sukabumi
+            </p>
+          </div>
+
+          {/* Right: Switcher View (Agenda vs Calendar) on Desktop */}
+          <div className="hidden sm:flex items-center justify-end">
+            <div className="flex bg-blue-950/45 p-1 rounded-2xl border border-white/15">
+              <button
+                onClick={() => setViewMode('agenda')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'agenda'
+                    ? 'bg-white text-blue-900 shadow-sm'
+                    : 'text-blue-100 hover:text-white'
+                }`}
+              >
+                Agenda
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'calendar'
+                    ? 'bg-white text-blue-900 shadow-sm'
+                    : 'text-blue-100 hover:text-white'
+                }`}
+              >
+                Kalender
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 mt-4 space-y-4">
+      <div className="space-y-5">
         {/* Search & Filter Bar */}
-        <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center gap-3">
+        <div className="bg-white p-3.5 sm:p-4 rounded-3xl border border-slate-200/80 shadow-[0_8px_30px_-4px_rgba(15,23,42,0.06)] flex flex-col sm:flex-row items-center gap-3">
           <div className="relative flex-1 w-full">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari pasien, vaksin, atau negara tujuan..."
-              className="w-full h-10 pl-9 pr-4 text-xs font-semibold text-slate-800 bg-slate-50 rounded-xl border border-slate-200 focus:border-blue-500 outline-none"
+              className="w-full h-11 pl-10 pr-4 text-xs sm:text-[13px] font-semibold text-slate-800 bg-slate-50/80 rounded-2xl border border-slate-200/90 focus:border-blue-500 focus:bg-white outline-none transition-all"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5 w-full sm:w-auto bg-slate-100/80 p-1 rounded-2xl border border-slate-200/60">
             {(['all', 'upcoming', 'today'] as const).map((period) => (
               <button
                 key={period}
                 onClick={() => setFilterPeriod(period)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center ${
                   filterPeriod === period
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
                 {period === 'all' ? 'Semua' : period === 'upcoming' ? 'Mendatang' : 'Hari Ini'}
@@ -239,7 +277,7 @@ export default function Schedule() {
         {viewMode === 'agenda' && (
           <div className="space-y-5">
             {agendaGroups.length === 0 ? (
-              <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 shadow-xs">
+              <div className="bg-white rounded-3xl p-10 text-center border border-slate-200/80 shadow-[0_8px_30px_-4px_rgba(15,23,42,0.06)]">
                 <CalendarIcon size={36} className="text-slate-300 mx-auto mb-2" />
                 <h3 className="font-bold text-slate-700 text-sm">Tidak Ada Jadwal Vaksinasi</h3>
                 <p className="text-xs text-slate-400 mt-1">
@@ -254,23 +292,23 @@ export default function Schedule() {
                 return (
                   <div key={dateHeader} className="space-y-2.5">
                     {/* Date Header matching user format */}
-                    <div className="flex items-center justify-between px-2 pt-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
+                    <div className="flex items-center justify-between px-2 pt-1">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-600 ring-4 ring-blue-100"></div>
                         <h2 className="font-black text-slate-900 text-base tracking-tight">
                           {dateHeader}
                         </h2>
-                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-100">
                           {dayName}
                         </span>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-400">
+                      <span className="text-[11px] font-bold text-slate-500 bg-white/80 px-2.5 py-1 rounded-full border border-slate-200/70">
                         {group.items.length} Pasien Terjadwal
                       </span>
                     </div>
 
                     {/* Schedule items in format: 08.00 - [Vaccine] - [Patient Name] */}
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {group.items.map((item) => {
                         const vName = getVaccineNames(item);
                         const pName = item.patient?.name || item.patient?.fullName || 'Pasien';
@@ -279,11 +317,11 @@ export default function Schedule() {
                         return (
                           <div
                             key={item.id}
-                            className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs hover:border-blue-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            className="bg-white p-4 sm:px-5 rounded-3xl border border-slate-200/80 shadow-[0_6px_24px_-4px_rgba(15,23,42,0.06)] hover:border-blue-300 hover:shadow-[0_10px_30px_-4px_rgba(37,99,235,0.1)] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                           >
                             <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                               {/* Time Pill */}
-                              <div className="w-16 h-12 bg-blue-50 text-blue-700 rounded-xl flex flex-col items-center justify-center shrink-0 border border-blue-100/80">
+                              <div className="w-16 h-12 bg-blue-50 text-blue-700 rounded-2xl flex flex-col items-center justify-center shrink-0 border border-blue-100/80">
                                 <span className="font-black text-sm leading-none">
                                   {item.time?.replace(' WIB', '') || '08:00'}
                                 </span>

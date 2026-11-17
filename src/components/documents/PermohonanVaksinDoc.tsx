@@ -35,6 +35,21 @@ export default function PermohonanVaksinDoc({
   const namaTravel = patient.travelName || patient.namaTravel || '-';
   const alamatTravel = patient.travelAddress || patient.alamatTravel || '-';
 
+  // Format TTL date: DD/MM/YYYY (e.g. 23/04/1999)
+  const formatTtlDate = (dateStr: string) => {
+    if (!dateStr || dateStr === '-') return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   // Format date helper DD / MM / YYYY
   const formatDateDisplay = (dateStr: string) => {
     if (!dateStr || dateStr === '-') return '__ / __ / ____';
@@ -61,7 +76,7 @@ export default function PermohonanVaksinDoc({
 
   return (
     <div
-      className={`bg-white text-black font-sans mx-auto p-3.5 sm:p-8 md:p-12 w-full max-w-[820px] shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-6 print:m-0 print:max-w-none ${
+      className={`print-document-f4 bg-white text-black font-sans mx-auto p-3.5 sm:p-8 md:p-12 w-full max-w-[215mm] shadow-md border border-slate-200 print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none ${
         isPrintMode ? 'print-container' : ''
       }`}
       style={{ minHeight: '330mm', color: '#000000', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif' }}
@@ -136,9 +151,8 @@ export default function PermohonanVaksinDoc({
             <span>5. Tempat Tanggal Lahir</span>
             <span>:</span>
           </div>
-          <div className="col-span-8 border-b border-dotted border-black/70 font-semibold px-1 pb-0.5 min-h-[20px] flex items-center justify-between">
-            <span>{tempatLahir}</span>
-            <span className="font-mono tracking-wider">{formatDateDisplay(tglLahir)}</span>
+          <div className="col-span-8 border-b border-dotted border-black/70 font-semibold px-1 pb-0.5 min-h-[20px]">
+            {tempatLahir}{formatTtlDate(tglLahir) ? `, ${formatTtlDate(tglLahir)}` : ''}
           </div>
         </div>
 

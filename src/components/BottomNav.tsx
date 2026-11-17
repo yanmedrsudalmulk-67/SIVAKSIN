@@ -12,7 +12,7 @@ export function BottomNav() {
   
   if (hidePaths.includes(location.pathname)) return null;
 
-  const unreadCount = notifications.filter(n => {
+  const unreadCount = (Array.isArray(notifications) ? notifications : []).filter(n => {
     if (n.read) return false;
     if (!n.userId) return true;
     if (!user) return true;
@@ -20,40 +20,44 @@ export function BottomNav() {
   }).length;
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 w-full max-w-md mx-auto z-50 print:hidden">
-      {/* Background with exact SVG curve matching the image */}
-      <div className="absolute inset-x-0 bottom-0 h-[76px] flex pointer-events-none drop-shadow-[0_-2px_10px_rgba(0,0,0,0.04)] bg-transparent items-end z-0">
-        <div className="flex-1 bg-white h-full"></div>
-        <svg width="120" height="76" viewBox="0 0 120 76" xmlns="http://www.w3.org/2000/svg" className="bg-transparent flex-shrink-0">
-          <path 
-            d="M0,0.5 C16,0.5 20,3 26,16 C34,42 42,65 60,65 C78,65 86,42 94,16 C100,3 104,0.5 120,0.5 L120,76 L0,76 Z" 
-            fill="#ffffff" 
-          />
-        </svg>
-        <div className="flex-1 bg-white h-full"></div>
-      </div>
-
-      <div className="relative h-[76px] pb-[env(safe-area-inset-bottom)] px-3 sm:px-6 flex items-center justify-between z-10 w-full">
-        <NavItem to="/home" icon={<Home size={24} />} label="Home" />
-        <NavItem to="/schedule" icon={<Calendar size={24} />} label="Jadwal" />
+    <nav className="fixed bottom-0 inset-x-0 w-full max-w-md mx-auto z-50 print:hidden transition-all duration-300 lg:hidden md:landscape:hidden">
+      {/* Container wrapper for smooth desktop pill dock experience */}
+      <div className="relative w-full md:rounded-[28px] md:border md:border-slate-200/90 md:shadow-[0_12px_36px_rgba(15,23,42,0.14)] md:bg-white/95 md:backdrop-blur-sm">
         
-        {/* Center floating button perfectly nested in the curve with a gap */}
-        <div className="relative -translate-y-3 flex items-center justify-center w-[72px]">
-          <div 
-            onClick={() => navigate('/register')}
-            className="w-[52px] h-[52px] bg-gradient-to-br from-[#0F3DDE] to-[#06B6D4] rounded-full flex items-center justify-center cursor-pointer shadow-[0_6px_16px_rgba(15,61,222,0.4)] hover:shadow-lg transition-all active:scale-95"
-          >
-            <Plus size={28} strokeWidth={2.5} className="text-white" />
-          </div>
+        {/* Background with exact SVG curve matching the image - rounded on desktop */}
+        <div className="absolute inset-x-0 bottom-0 h-[76px] flex pointer-events-none drop-shadow-[0_-2px_10px_rgba(0,0,0,0.04)] md:drop-shadow-none bg-transparent items-end z-0 md:rounded-[28px] md:overflow-hidden">
+          <div className="flex-1 bg-white h-full"></div>
+          <svg width="120" height="76" viewBox="0 0 120 76" xmlns="http://www.w3.org/2000/svg" className="bg-transparent flex-shrink-0">
+            <path 
+              d="M0,0.5 C16,0.5 20,3 26,16 C34,42 42,65 60,65 C78,65 86,42 94,16 C100,3 104,0.5 120,0.5 L120,76 L0,76 Z" 
+              fill="#ffffff" 
+            />
+          </svg>
+          <div className="flex-1 bg-white h-full"></div>
         </div>
-        
-        <NavItem 
-          to="/notifications" 
-          icon={<Bell size={24} />} 
-          label="Notif" 
-          badgeCount={unreadCount}
-        />
-        <NavItem to="/profile" icon={<User size={24} />} label="Profil" />
+
+        <div className="relative h-[76px] pb-[env(safe-area-inset-bottom)] px-3 sm:px-6 flex items-center justify-between z-10 w-full">
+          <NavItem to="/home" icon={<Home size={24} />} label="Home" />
+          <NavItem to="/schedule" icon={<Calendar size={24} />} label="Jadwal" />
+          
+          {/* Center floating button perfectly nested in the curve with a gap */}
+          <div className="relative -translate-y-3 flex items-center justify-center w-[72px]">
+            <div 
+              onClick={() => navigate('/register')}
+              className="w-[52px] h-[52px] bg-gradient-to-br from-[#0F3DDE] to-[#06B6D4] rounded-full flex items-center justify-center cursor-pointer shadow-[0_6px_16px_rgba(15,61,222,0.4)] hover:shadow-lg transition-all active:scale-95 group"
+            >
+              <Plus size={28} strokeWidth={2.5} className="text-white group-hover:rotate-90 transition-transform duration-300" />
+            </div>
+          </div>
+          
+          <NavItem 
+            to="/notifications" 
+            icon={<Bell size={24} />} 
+            label="Notif" 
+            badgeCount={unreadCount}
+          />
+          <NavItem to="/profile" icon={<User size={24} />} label="Profil" />
+        </div>
       </div>
     </nav>
   );

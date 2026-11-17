@@ -48,7 +48,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
 
         {isDangerAll && (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-[11px] text-rose-700 font-medium text-left">
-            ⚠️ <strong>Perhatian:</strong> Penghapusan ini berlaku pada tabel saat ini dan akan disinkronkan ke Supabase jika terhubung. Anda tetap dapat memuat ulang 20 item standar kapan saja.
+            ⚠️ <strong>Perhatian:</strong> Penghapusan ini berlaku pada tabel dan tersimpan langsung ke database lokal komputer. Anda tetap dapat memuat ulang 20 item standar kapan saja.
           </div>
         )}
 
@@ -56,7 +56,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all active:scale-95"
+            className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all active:scale-95 cursor-pointer"
           >
             Batal
           </button>
@@ -66,7 +66,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
               onConfirm();
               onClose();
             }}
-            className="py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 active:scale-95 flex items-center justify-center gap-1.5"
+            className="py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Trash2 size={14} />
             <span>{confirmLabel}</span>

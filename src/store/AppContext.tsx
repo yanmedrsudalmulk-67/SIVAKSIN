@@ -9,13 +9,28 @@ import {
   deleteVaccineFromSupabase,
   fetchBookingsFromSupabase,
   createBookingInSupabase,
+  updateBookingInSupabase,
   updateBookingStatusInSupabase,
   deleteBookingInSupabase,
   fetchUserProfileFromSupabase,
   upsertUserProfileToSupabase,
   fetchAppSettingsFromSupabase,
-  saveAppSettingsToSupabase
+  saveAppSettingsToSupabase,
+  fetchDailyReportsFromSupabase,
+  saveDailyReportToSupabase,
+  fetchStockMutationsFromSupabase,
+  addStockMutationToSupabase,
+  triggerApiikSyncLocal,
+  syncBookingToSimrsLocal,
+  postponeBookingLocal,
+  type DailyUsageReport,
+  type StockMutation
 } from '../services/appDataSupabaseService';
+import {
+  loginUserLocal,
+  registerUserLocal,
+  fetchUsersLocal
+} from '../services/localDataService';
 
 type UserRole = 'guest' | 'user' | 'admin';
 
@@ -36,9 +51,24 @@ export interface Booking {
   vaccineIds?: string[];
   date: string;
   time: string;
-  status: 'menunggu' | 'terverifikasi' | 'selesai';
+  status: 'menunggu' | 'terverifikasi' | 'selesai' | 'ditunda' | 'batal';
   patient: any;
   user_id?: string;
+  reg_no?: number;
+  simrs_synced?: boolean;
+  simrs_no_rawat?: string;
+  simrs_no_reg?: string;
+  simrs_no_rkm_medis?: string;
+  simrs_synced_at?: string;
+  simrs_message?: string;
+  postponed_at?: string;
+  postponed_reason?: string;
+  doctor_code?: string;
+  doctor_name?: string;
+  vaccinator_name?: string;
+  vaccinator_nip?: string;
+  admin_officer_name?: string;
+  admin_officer_nip?: string;
 }
 
 export interface AppNotification {
@@ -83,6 +113,7 @@ interface AppContextType extends AppState {
   updateEicvAvailability: (stock: number, status: string, note?: string) => Promise<{ success: boolean; error?: string }>;
   updateUser: (updates: any) => Promise<void>;
   addBooking: (booking: Booking) => Promise<void>;
+  updateBooking: (id: string, updates: Partial<Booking>) => Promise<void>;
   updateBookingStatus: (id: string, status: Booking['status']) => Promise<void>;
   addVaccine: (vaccine: Vaccine) => Promise<{ success: boolean; error?: string }>;
   updateVaccine: (id: string, updates: Partial<Vaccine>) => Promise<{ success: boolean; error?: string }>;
@@ -101,36 +132,77 @@ interface AppContextType extends AppState {
   verifyDocumentApproval: (bookingId: string) => Promise<void>;
   reuploadDocument: (bookingId: string, docType: 'ktp' | 'passport', fileUrl: string, fileName?: string) => Promise<void>;
   uploadOfficialEicv: (bookingId: string, fileUrl: string, fileName?: string) => Promise<void>;
+  dailyReports: DailyUsageReport[];
+  stockMutations: StockMutation[];
+  addDailyReport: (report: Partial<DailyUsageReport>) => Promise<{ success: boolean; error?: string }>;
+  addStockMutation: (mutation: any) => Promise<{ success: boolean; error?: string }>;
+  fetchReports: (params?: { from?: string; to?: string; vaccine?: string }) => Promise<DailyUsageReport[]>;
+  fetchMutations: (params?: { from?: string; to?: string; type?: string }) => Promise<StockMutation[]>;
+  syncWithApiik: (fullSync?: boolean) => Promise<{ ok: boolean; result?: any; lastSyncTime?: string; error?: string }>;
+  syncBookingToSimrsAction: (bookingId: string, reregister?: boolean, doctorCode?: string) => Promise<{ success: boolean; error?: string; no_rawat?: string; no_reg?: string; message?: string; kd_dokter?: string; nm_dokter?: string }>;
+  postponeBookingAction: (bookingId: string, reason?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
 }
 
 const defaultVaccines: Vaccine[] = [
   {
     id: 'v1',
-    name: 'Meningitis Vaccine (Menveo)',
-    price: 350000,
-    stock: 120,
+    name: 'Vaksin Meningitis',
+    price: 320000,
+    stock: 27,
     description: 'Vaksin wajib untuk jamaah umroh dan haji.',
     benefits: ['Perlindungan dari radang selaput otak', 'Sertifikat Internasional (ICV)'],
+    category: 'Wajib',
+    protectionDuration: '2 Tahun'
   },
   {
     id: 'v2',
-    name: 'Polio Vaccine (OPV/IPV)',
-    price: 150000,
-    stock: 50,
-    description: 'Vaksin tambahan yang diwajibkan beberapa negara.',
+    name: 'Vaksin Polio',
+    price: 310000,
+    stock: 49,
+    description: 'Vaksin wajib untuk jamaah umroh dan haji.',
     benefits: ['Mencegah kelumpuhan akibat virus polio', 'Aman untuk dewasa'],
+    category: 'Wajib',
+    protectionDuration: 'Seumur Hidup'
   },
   {
     id: 'v3',
-    name: 'Influenza Vaccine (Vaxigrip)',
-    price: 300000,
-    stock: 200,
+    name: 'Vaksin Influenza',
+    price: 250000,
+    stock: 16,
     description: 'Perlindungan flu tahunan untuk perjalanan wisata atau tugas kerja.',
     benefits: ['Mencegah infeksi virus influenza A dan B', 'Mengurangi risiko komplikasi pernapasan'],
+    category: 'Dianjurkan',
+    protectionDuration: '1 Tahun'
   }
 ];
 
 const defaultUsers = [
+  {
+    id: 'admin_rsam',
+    name: 'Adi Tresa Purnama',
+    username: 'vaksinrsam',
+    email: 'admin@rsudalmulk.id',
+    password: 'password123',
+    role: 'admin',
+    nik: '3202332304890002',
+    no_hp: '081224343434',
+    alamat: 'Kp. Limbangan RT.003/001 Ds/Kel. Limbangan Kec. Sukaraja Kab. Sukabumi',
+    no_passport: 'E872888',
+    avatar_url: '/uploads/avatar_1788621159019_b716v8.jpg',
+    ktp_url: '/uploads/ktp_1788649078948_9043wr.jpg',
+    passport_url: '/uploads/passport_1788649084352_cy2m8h.jpg'
+  },
+  {
+    id: 'u_admin',
+    username: 'admin',
+    name: 'Administrator RSUD Al-Mulk',
+    email: 'admin@rsudalmulk.sukabumi.go.id',
+    password: 'password123',
+    role: 'admin',
+    nik: '3272011010880001',
+    no_hp: '081288882568',
+    avatar_url: '/uploads/avatar_1788621159019_b716v8.jpg'
+  },
   {
     id: 'u_demo_1',
     username: 'budi.santoso',
@@ -139,7 +211,8 @@ const defaultUsers = [
     password: 'password123',
     role: 'user',
     nik: '3272010101900001',
-    no_hp: '08123456789'
+    no_hp: '08123456789',
+    no_passport: 'A9821321'
   }
 ];
 
@@ -223,24 +296,58 @@ const createDefaultEicvPdf = (): string => {
 
 const defaultBookings: Booking[] = [
   {
-    id: 'BK-RSAM01',
+    id: 'BK-2026-001',
+    user_id: 'admin_rsam',
     vaccineId: 'v1',
-    date: '2026-06-10',
+    vaccineIds: ['v1', 'v2'],
+    date: '2026-09-10',
     time: '09:00 WIB',
+    status: 'menunggu',
+    patient: {
+      name: 'Adi Tresa Purnama',
+      nik: '3202332304890002',
+      passport: 'E872888',
+      handphone: '081224343434',
+      occupation: 'PNS',
+      purpose: 'Umroh',
+      targetCountry: 'Arab Saudi',
+      travelName: 'Abba Tour',
+      travelAddress: 'Sukabumi',
+      departureDate: '2026-09-09',
+      selectedDate: '2026-09-10',
+      selectedTime: '09:00 WIB',
+      selectedVaccines: ['v1', 'v2'],
+      selectedVaccineNames: 'Vaksin Meningitis, Vaksin Polio',
+      totalPrice: 630000,
+      status_screening: 'layak',
+      e_icv_status: 'menunggu',
+      ktp_url: '/uploads/ktp_1788649078948_9043wr.jpg',
+      ktp_file_name: 'KTP_Adi_Tresa_Purnama.jpg',
+      passport_url: '/uploads/passport_1788649084352_cy2m8h.jpg',
+      passport_file_name: 'Paspor_Adi_Tresa_Purnama.jpg'
+    }
+  },
+  {
+    id: 'BKTITENY',
+    user_id: 'admin_rsam',
+    vaccineId: 'v1',
+    vaccineIds: ['v1'],
+    date: '2026-09-10',
+    time: '11:00 WIB',
     status: 'selesai',
     patient: {
-      name: 'Budi Santoso',
-      nik: '3272010101900001',
-      passport: 'A9821321',
-      handphone: '08123456789',
-      purpose: 'Umroh',
-      selectedVaccine: 'v1',
-      selectedDate: '2026-06-10',
-      selectedTime: '09:00 WIB',
+      name: 'Admin RSUD Al-Mulk',
+      nik: '31213123231312',
+      passport: 'e133123',
+      email: 'admin@rsudalmulk.id',
+      gender: 'Laki-laki',
+      handphone: '081224343434',
+      totalPrice: 630000,
       e_icv_status: 'diterbitkan',
-      e_icv_file_name: 'Sertifikat_E-ICV_Resmi_Budi_Santoso.pdf',
-      e_icv_issued_at: '2026-06-10T10:00:00.000Z',
-      e_icv_url: createDefaultEicvPdf()
+      ktp_url: '/uploads/ktp_1788620582811_ojicsx.jpg',
+      passport_url: '/uploads/passport_1788620589368_qb0noa.jpg',
+      selectedDate: '2026-09-10',
+      selectedTime: '11:00 WIB'
     }
   }
 ];
@@ -282,20 +389,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [vaccines, setVaccinesState] = useState<Vaccine[]>(() => loadStorage('sivaksin_vaccines', defaultVaccines));
   const [users, setUsersState] = useState<any[]>(() => loadStorage('sivaksin_users', defaultUsers));
   const [notifications, setNotificationsState] = useState<AppNotification[]>(() => loadStorage('sivaksin_notifications', defaultNotifications));
-  const [appLogo, setAppLogoState] = useState<string | null>(() => localStorage.getItem('app_logo') || null);
-  const [docLogoLeft, setDocLogoLeftState] = useState<string | null>(() => localStorage.getItem('sivaksin_doc_logo_left') || null);
-  const [docLogoRight, setDocLogoRightState] = useState<string | null>(() => localStorage.getItem('sivaksin_doc_logo_right') || null);
-  const [heroBgImage, setHeroBgImageState] = useState<string | null>(() => localStorage.getItem('sivaksin_hero_bg_image') || null);
+  const [appLogo, setAppLogoState] = useState<string | null>(() => localStorage.getItem('app_logo') || '/uploads/app_logo_1788606477435_t7b9um.jpg');
+  const [docLogoLeft, setDocLogoLeftState] = useState<string | null>(() => localStorage.getItem('sivaksin_doc_logo_left') || '/uploads/doc_logo_pemkot_1788656123707_lb0cju.jpg');
+  const [docLogoRight, setDocLogoRightState] = useState<string | null>(() => localStorage.getItem('sivaksin_doc_logo_right') || '/uploads/doc_logo_rsud_1788656132991_qwh1uj.jpg');
+  const [heroBgImage, setHeroBgImageState] = useState<string | null>(() => localStorage.getItem('sivaksin_hero_bg_image') || '/uploads/hero_bg_1788679567337_abi3rm.jpg');
   const [eicvStock, setEicvStockState] = useState<number>(() => {
     const saved = localStorage.getItem('sivaksin_eicv_stock');
-    return saved !== null ? parseInt(saved, 10) : 150;
+    return saved !== null ? parseInt(saved, 10) : 33;
   });
   const [eicvStatus, setEicvStatusState] = useState<string>(() => {
     return localStorage.getItem('sivaksin_eicv_status') || 'Tersedia';
   });
   const [eicvNote, setEicvNoteState] = useState<string>(() => {
-    return localStorage.getItem('sivaksin_eicv_note') || 'Blanko Resmi E-ICV / Buku Kuning Siap Diterbitkan di RSUD Al-Mulk';
+    return localStorage.getItem('sivaksin_eicv_note') || 'E-ICV siap diterbitkan di RSUD Al-Mulk';
   });
+  const [dailyReports, setDailyReportsState] = useState<DailyUsageReport[]>(() => loadStorage('sivaksin_daily_reports', []));
+  const [stockMutations, setStockMutationsState] = useState<StockMutation[]>(() => loadStorage('sivaksin_stock_mutations', []));
+
+  const setDailyReports = (newReports: DailyUsageReport[] | ((prev: DailyUsageReport[]) => DailyUsageReport[])) => {
+    setDailyReportsState(prev => {
+      const resolved = typeof newReports === 'function' ? newReports(prev) : newReports;
+      saveStorage('sivaksin_daily_reports', resolved);
+      return resolved;
+    });
+  };
+
+  const setStockMutations = (newMutations: StockMutation[] | ((prev: StockMutation[]) => StockMutation[])) => {
+    setStockMutationsState(prev => {
+      const resolved = typeof newMutations === 'function' ? newMutations(prev) : newMutations;
+      saveStorage('sivaksin_stock_mutations', resolved);
+      return resolved;
+    });
+  };
   const [isSupabaseOnline, setIsSupabaseOnline] = useState<boolean>(isSupabaseConfigured);
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [, setIsLoading] = useState(true);
@@ -624,34 +749,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const uploadOfficialEicv = async (bookingId: string, fileUrl: string, fileName?: string) => {
-    setBookings(prev => prev.map(b => {
-      if (b.id === bookingId) {
-        const updatedPatient = {
-          ...(b.patient || {}),
-          e_icv_url: fileUrl,
-          e_icv_file_name: fileName || 'Sertifikat_E-ICV_Resmi.pdf',
-          e_icv_status: 'diterbitkan',
-          e_icv_issued_at: new Date().toISOString()
-        };
-        const updatedBooking: Booking = { 
-          ...b, 
-          status: 'selesai', 
-          patient: updatedPatient 
-        };
-
-        if (isSupabaseConfigured) {
-          supabase.from('bookings').update({ 
-            status: 'selesai',
-            patient: updatedPatient 
-          }).eq('id', bookingId).then(
-            () => {},
-            (err) => console.warn('Sync E-ICV upload to Supabase note:', err)
-          );
-        }
-        return updatedBooking;
-      }
-      return b;
-    }));
+    if (role !== 'admin') throw new Error('Hanya admin yang dapat mengunggah sertifikat.');
+    const response = await fetch('/api/bookings/' + encodeURIComponent(bookingId) + '/certificate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileData: fileUrl, fileName })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Gagal menyimpan sertifikat');
+    setBookings(prev => prev.map(b => b.id === bookingId ? result.booking : b));
 
     const currentBooking = bookings.find(b => b.id === bookingId);
     const targetUserId = currentBooking?.user_id || currentBooking?.patient?.nik || currentBooking?.patient?.email;
@@ -669,13 +774,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Sync All Data from Supabase Cloud
   const refreshAllCloudData = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setIsSupabaseOnline(false);
-      setIsLoading(false);
-      return;
-    }
-
     try {
+      setUsers(await fetchUsersLocal());
+      const notificationsResponse = await fetch('/api/notifications');
+      if (notificationsResponse.ok) {
+        const serverNotifications: AppNotification[] = await notificationsResponse.json();
+        setNotifications(prev => [...serverNotifications.map(n => ({ ...n, read: prev.find(p => p.id === n.id)?.read ?? n.read })), ...prev.filter(n => !serverNotifications.some(remote => remote.id === n.id))]);
+      }
       // 1. Fetch Vaccines from Supabase
       const { vaccines: cloudVaccines, error: vErr } = await fetchVaccinesFromSupabase();
       if (cloudVaccines && cloudVaccines.length > 0) {
@@ -766,6 +871,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           window.dispatchEvent(new Event('user_avatar_updated'));
         }
       }
+
+      // 5. Fetch Daily Reports & Stock Mutations
+      try {
+        const reps = await fetchDailyReportsFromSupabase();
+        if (reps && reps.length > 0) setDailyReports(reps);
+        const muts = await fetchStockMutationsFromSupabase();
+        if (muts && muts.length > 0) setStockMutations(muts);
+      } catch (e) {
+        console.warn('Sync daily reports notice:', e);
+      }
     } catch (err) {
       console.warn('Sync cloud data notice:', err);
       setIsSupabaseOnline(false);
@@ -773,6 +888,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const refresh = () => { refreshAllCloudData(); };
+    window.addEventListener('focus', refresh);
+    const timer = window.setInterval(refresh, 30000);
+    return () => { window.removeEventListener('focus', refresh); window.clearInterval(timer); };
+  }, [refreshAllCloudData]);
 
   // Supabase Auth & Initial Synchronization
   useEffect(() => {
@@ -826,178 +948,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id: `u_${Date.now()}`,
       username: userData.username,
       name: userData.name || userData.username,
-      email: userData.email,
+      email: userData.email || '',
       password: userData.password,
       role: 'user' as UserRole,
       nik: userData.nik || '',
       no_hp: userData.no_hp || '',
     };
 
-    if (isSupabaseConfigured) {
-      try {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: userData.email,
-          password: userData.password,
-          options: { data: { name: userData.username } }
-        });
-
-        if (authError) {
-          console.warn('Supabase auth sign up error, saving locally:', authError.message);
-          setUsers(prev => [...prev.filter(u => u.username !== userData.username && u.email !== userData.email), newUser]);
-          setUser(newUser);
-          setRole('user');
-          return { success: true };
-        }
-
-        if (authData?.user) {
-          try {
-            await supabase.from('users').insert([{
-              id: authData.user.id,
-              username: userData.username,
-              name: userData.username,
-              email: userData.email,
-              role: 'user'
-            }]);
-          } catch (dbErr) {
-            console.warn('Error inserting user to DB table:', dbErr);
-          }
-
-          const registeredUser = {
-            id: authData.user.id,
-            username: userData.username,
-            name: userData.username,
-            email: userData.email,
-            role: 'user' as UserRole
-          };
-          setUsers(prev => [...prev.filter(u => u.username !== userData.username), registeredUser]);
-          setUser(registeredUser);
-          setRole('user');
-        }
-        return { success: true };
-      } catch (err: any) {
-        console.warn('Supabase register connection error, saving locally:', err);
-        setUsers(prev => [...prev.filter(u => u.username !== userData.username && u.email !== userData.email), newUser]);
-        setUser(newUser);
+    try {
+      const regRes = await registerUserLocal(newUser);
+      if (regRes.success && regRes.user) {
+        setUsers(prev => [...prev.filter(u => u.username !== userData.username && u.email !== userData.email), regRes.user]);
+        setUser(regRes.user);
         setRole('user');
         return { success: true };
+      } else if (!regRes.success && regRes.error) {
+        return { success: false, error: regRes.error };
       }
-    } else {
-      setUsers(prev => [...prev.filter(u => u.username !== userData.username && u.email !== userData.email), newUser]);
-      setUser(newUser);
-      setRole('user');
-      return { success: true };
+    } catch (err: any) {
+      console.warn('Register local API warning:', err);
     }
+
+    return { success: false, error: 'Gagal menyimpan akun ke server. Silakan coba lagi.' };
   };
 
   const loginUser = async (userData: any): Promise<boolean> => {
     const rawIdentifier = (userData.username || userData.email || '').trim();
     const rawPassword = (userData.password || '').trim();
 
-    // 1. Admin Login Hardcoded
-    if (
-      (rawIdentifier.toLowerCase() === 'vaksinrsam' || rawIdentifier.toLowerCase() === 'admin' || rawIdentifier.toLowerCase() === 'admin@rsudalmulk.id') &&
-      rawPassword === '123456'
-    ) {
-      let adminUser: any = { 
-        id: 'admin_rsam', 
-        name: 'Admin RSUD Al-Mulk', 
-        username: 'vaksinrsam', 
-        email: 'admin@rsudalmulk.id', 
-        role: 'admin' 
-      };
-
-      if (isSupabaseConfigured) {
-        try {
-          const { profile } = await fetchUserProfileFromSupabase('admin_rsam');
-          if (profile) {
-            adminUser = { ...adminUser, ...profile };
-            if (profile.avatar_url) {
-              localStorage.setItem('sivaksin_user_avatar', profile.avatar_url);
-            }
-          }
-        } catch (e) {
-          // ignore
+    // 2. Local Database Login
+    try {
+      const loginRes = await loginUserLocal({ username: rawIdentifier, password: rawPassword });
+      if (loginRes.success && loginRes.user) {
+        setUser(loginRes.user);
+        setRole((loginRes.user.role as UserRole) || 'user');
+        if (loginRes.user.avatar_url) {
+          localStorage.setItem('sivaksin_user_avatar', loginRes.user.avatar_url);
         }
-      }
-
-      setUser(adminUser);
-      setRole('admin');
-      refreshAllCloudData();
-      return true;
-    }
-
-    // 2. Check Supabase Auth if configured
-    if (isSupabaseConfigured) {
-      try {
-        const loginEmail = rawIdentifier.includes('@') ? rawIdentifier : `${rawIdentifier}@example.com`;
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: loginEmail,
-          password: rawPassword
-        });
-
-        if (!error && data?.user) {
-          const { profile } = await fetchUserProfileFromSupabase(data.user.id);
-          const finalProfile: any = profile || {
-            id: data.user.id,
-            email: data.user.email,
-            username: rawIdentifier,
-            name: rawIdentifier,
-            role: 'user',
-            avatar_url: ''
-          };
-
-          if (finalProfile.avatar_url) {
-            localStorage.setItem('sivaksin_user_avatar', finalProfile.avatar_url);
-          }
-
-          setUser(finalProfile);
-          const userRole = (finalProfile.role as UserRole) || 'user';
-          setRole(userRole);
-          refreshAllCloudData();
-          return true;
-        }
-
-        // If Supabase returned error or email not found, check local users
-        console.warn('Supabase login error, checking local fallback:', error?.message);
-        const localMatch = users.find(
-          u => (u.username?.toLowerCase() === rawIdentifier.toLowerCase() || u.email?.toLowerCase() === rawIdentifier.toLowerCase()) &&
-               u.password === rawPassword
-        );
-        if (localMatch) {
-          setUser(localMatch);
-          setRole((localMatch.role as UserRole) || 'user');
-          return true;
-        }
-        return false;
-      } catch (err) {
-        console.warn('Supabase login network exception, checking local fallback:', err);
-        const localMatch = users.find(
-          u => (u.username?.toLowerCase() === rawIdentifier.toLowerCase() || u.email?.toLowerCase() === rawIdentifier.toLowerCase()) &&
-               u.password === rawPassword
-        );
-        if (localMatch) {
-          setUser(localMatch);
-          setRole((localMatch.role as UserRole) || 'user');
-          return true;
-        }
-        return false;
-      }
-    } else {
-      // 3. Mock User Login fallback
-      const localMatch = users.find(
-        u => (u.username?.toLowerCase() === rawIdentifier.toLowerCase() || u.email?.toLowerCase() === rawIdentifier.toLowerCase()) &&
-             u.password === rawPassword
-      );
-      if (localMatch) {
-        setUser(localMatch);
-        setRole((localMatch.role as UserRole) || 'user');
+        refreshAllCloudData();
         return true;
       }
-      return false;
+    } catch (err) {
+      console.warn('Local login error, checking memory state:', err);
     }
+
+    return false;
   };
 
   const logout = async () => {
+    await fetch('/api/users/logout', { method: 'POST' }).catch(() => {});
     if (isSupabaseConfigured) {
       try {
         await supabase.auth.signOut();
@@ -1054,7 +1053,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const newBooking = { ...booking, user_id: user?.id };
     
     // Simpan langsung ke Supabase Cloud
-    const { booking: savedCloudBooking } = await createBookingInSupabase(newBooking);
+    const { booking: savedCloudBooking, success, error } = await createBookingInSupabase(newBooking);
+    if (!success) throw new Error(error || 'Gagal menyimpan pendaftaran.');
     const finalBooking = (savedCloudBooking as Booking) || newBooking;
 
     setBookings(prev => [finalBooking, ...prev.filter(b => b.id !== booking.id)]);
@@ -1083,8 +1083,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateBooking = async (id: string, updates: Partial<Booking>) => {
+    setBookings(prev => {
+      const updated = prev.map(b => {
+        if (b.id !== id) return b;
+        return {
+          ...b,
+          ...updates,
+          patient: updates.patient ? { ...b.patient, ...updates.patient } : b.patient
+        };
+      });
+      saveStorage('sivaksin_bookings', updated);
+      return updated;
+    });
+    try {
+      await updateBookingInSupabase(id, updates);
+    } catch (err) {
+      console.warn('Gagal simpan update booking lokal:', err);
+    }
+  };
+
   const updateBookingStatus = async (id: string, status: Booking['status']) => {
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+    setBookings(prev => {
+      const updated = prev.map(b => b.id === id ? { ...b, status } : b);
+      saveStorage('sivaksin_bookings', updated);
+      return updated;
+    });
     await updateBookingStatusInSupabase(id, status);
   };
 
@@ -1155,6 +1179,113 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await deleteBookingInSupabase(id);
   };
 
+  const addDailyReport = async (report: Partial<DailyUsageReport>) => {
+    const res = await saveDailyReportToSupabase(report);
+    if (res.success && res.report) {
+      setDailyReports(prev => [res.report!, ...prev.filter(r => r.id !== res.report!.id)]);
+      return { success: true };
+    }
+    return { success: false, error: res.error };
+  };
+
+  const addStockMutation = async (mutation: any) => {
+    const res = await addStockMutationToSupabase(mutation);
+    if (res.success && res.mutation) {
+      setStockMutations(prev => [res.mutation!, ...prev.filter(m => m.id !== res.mutation!.id)]);
+      if (res.updated_stock !== undefined) {
+        setVaccines(prev => prev.map(v => v.id === mutation.vaccine_id ? { ...v, stock: res.updated_stock! } : v));
+      }
+      if (mutation.icv_qty !== undefined) {
+        const icvNum = Number(mutation.icv_qty) || 0;
+        if (mutation.type === 'masuk') {
+          setEicvStockState(s => (s || 0) + icvNum);
+        } else if (mutation.type === 'keluar') {
+          setEicvStockState(s => Math.max(0, (s || 0) - icvNum));
+        } else if (mutation.type === 'penyesuaian') {
+          setEicvStockState(icvNum);
+        }
+      }
+      return { success: true };
+    }
+    return { success: false, error: res.error };
+  };
+
+  const fetchReports = async (params?: { from?: string; to?: string; vaccine?: string }) => {
+    const reps = await fetchDailyReportsFromSupabase(params);
+    if (reps) setDailyReports(reps);
+    return reps || [];
+  };
+
+  const fetchMutations = async (params?: { from?: string; to?: string; type?: string }) => {
+    const muts = await fetchStockMutationsFromSupabase(params);
+    if (muts) setStockMutations(muts);
+    return muts || [];
+  };
+
+  const syncWithApiik = async (fullSync: boolean = false) => {
+    const res = await triggerApiikSyncLocal(fullSync);
+    if (res.ok) {
+      await refreshAllCloudData();
+    }
+    return res;
+  };
+
+  const syncBookingToSimrsAction = async (bookingId: string, reregister?: boolean, doctorCode?: string) => {
+    try {
+      const res = await syncBookingToSimrsLocal(bookingId, reregister, doctorCode);
+      if (res.success) {
+        setBookings(prev => prev.map(b => {
+          if (b.id === bookingId) {
+            return {
+              ...b,
+              status: reregister ? 'menunggu' : b.status,
+              date: (reregister && res.tgl_registrasi) ? res.tgl_registrasi : b.date,
+              simrs_synced: true,
+              simrs_no_rawat: res.no_rawat || b.simrs_no_rawat,
+              simrs_no_reg: res.no_reg || b.simrs_no_reg,
+              simrs_no_rkm_medis: res.no_rkm_medis || b.simrs_no_rkm_medis,
+              simrs_synced_at: new Date().toISOString(),
+              simrs_message: res.message,
+              doctor_code: res.kd_dokter || b.doctor_code || doctorCode || 'D00057',
+              doctor_name: res.nm_dokter || b.doctor_name
+            };
+          }
+          return b;
+        }));
+      }
+      return res;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Gagal mengirim ke SIMRS' };
+    }
+  };
+
+  const postponeBookingAction = async (bookingId: string, reason?: string) => {
+    try {
+      const res = await postponeBookingLocal(bookingId, reason);
+      if (res.success) {
+        setBookings(prev => prev.map(b => {
+          if (b.id === bookingId) {
+            return {
+              ...b,
+              status: 'ditunda',
+              simrs_synced: false,
+              simrs_no_rawat: undefined,
+              simrs_no_reg: undefined,
+              postponed_at: new Date().toISOString(),
+              postponed_reason: reason || 'Kondisi kesehatan/penyakit belum memungkinkan vaksin',
+              simrs_message: 'Pendaftaran ditunda (antrean SIMRS telah dibatalkan). Klik "Daftar Ulang ke SIMRS" jika pasien sudah siap divaksin.'
+            };
+          }
+          return b;
+        }));
+        return { success: true, message: res.message };
+      }
+      return { success: false, error: res.error || 'Gagal menunda vaksinasi' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Gagal menunda vaksinasi' };
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1173,6 +1304,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         eicvStock,
         eicvStatus,
         eicvNote,
+        dailyReports,
+        stockMutations,
         setRole,
         setUser,
         setAppLogo,
@@ -1182,6 +1315,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateEicvAvailability,
         updateUser,
         addBooking,
+        updateBooking,
         updateBookingStatus,
         addVaccine,
         updateVaccine,
@@ -1199,7 +1333,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         requestDocumentRevision,
         verifyDocumentApproval,
         reuploadDocument,
-        uploadOfficialEicv
+        uploadOfficialEicv,
+        addDailyReport,
+        addStockMutation,
+        fetchReports,
+        fetchMutations,
+        syncWithApiik,
+        syncBookingToSimrsAction,
+        postponeBookingAction
       }}
     >
       {children}
