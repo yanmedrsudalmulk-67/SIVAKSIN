@@ -15,7 +15,7 @@ import {
   defaultAnaphylacticItems,
   AnaphylacticHistoryRecord,
   initialHistoryRecords
-} from '../data/anaphylacticData';
+} from '../constants/anaphylacticData';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { 
   fetchAnaphylacticFromSupabase, 

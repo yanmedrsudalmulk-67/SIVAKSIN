@@ -3,7 +3,7 @@
  * Dialihkan 100% ke penyimpanan database lokal komputer (data/sivaksin_db.json).
  */
 
-import { AnaphylacticItem, AnaphylacticFormMeta, AnaphylacticHistoryRecord, defaultAnaphylacticItems, defaultFormMeta } from '../data/anaphylacticData';
+import { AnaphylacticItem, AnaphylacticFormMeta, AnaphylacticHistoryRecord, defaultAnaphylacticItems, defaultFormMeta } from '../constants/anaphylacticData';
 import { fetchAnaphylacticLocal, syncAnaphylacticLocal } from './localDataService';
 
 export interface SupabaseSyncResult {

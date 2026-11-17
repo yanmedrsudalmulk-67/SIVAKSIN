@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X, Save, Plus, Edit2, PackagePlus, AlertCircle, Calendar, Hash, Check } from 'lucide-react';
-import { AnaphylacticItem } from '../data/anaphylacticData';
+import { AnaphylacticItem } from '../constants/anaphylacticData';
 
 interface AnaphylacticItemModalProps {
   isOpen: boolean;

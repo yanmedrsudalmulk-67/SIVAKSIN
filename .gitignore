@@ -15,7 +15,8 @@ coverage/
 
 # Data Operasional Lokal RS, Database Pasien, Dokumen Upload & AutoSync Log
 # (Menjaga privasi data pasien/NIK/KTP/Paspor & mencegah konflik saat sync AI Studio)
-data/
+/data/
+!src/data/
 public/uploads/
 
 # File Sementara, Screenshot Uji & Agen Lokal

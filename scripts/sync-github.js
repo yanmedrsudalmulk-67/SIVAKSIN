@@ -29,7 +29,7 @@ const REQUIRED_GITIGNORE_LINES = [
   'dist/',
   '.env*',
   '!.env.example',
-  'data/',
+  '/data/',
   'public/uploads/',
   'scratch/',
 ];

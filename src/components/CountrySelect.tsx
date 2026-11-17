@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, Check, Globe, X } from 'lucide-react';
-import { ALL_COUNTRIES, Country } from '../data/countries';
+import { ALL_COUNTRIES, Country } from '../constants/countries';
 
 interface CountrySelectProps {
   value: string;

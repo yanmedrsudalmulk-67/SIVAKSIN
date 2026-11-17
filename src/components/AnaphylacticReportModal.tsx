@@ -5,7 +5,7 @@ import {
   ShieldCheck, FileText, Calendar, User, Building2, 
   Loader2, Check
 } from 'lucide-react';
-import { AnaphylacticHistoryRecord } from '../data/anaphylacticData';
+import { AnaphylacticHistoryRecord } from '../constants/anaphylacticData';
 import { renderHtmlToCanvas } from '../utils/html2canvasHelper';
 import { jsPDF } from 'jspdf';
 
