@@ -2143,51 +2143,45 @@ export default function History() {
             {/* AKUMULASI STATISTIK PEMAKAIAN (KPI CARDS) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               
-              {/* Total Vaksin Terpakai */}
+              {/* Akumulasi Pemakaian */}
               <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg uppercase tracking-wider">
-                        Akumulasi Pemakaian
-                      </span>
-                      <h3 className="text-3xl font-black text-slate-900 mt-2">
-                        {usageStats.totalVaksinTerpakai} <span className="text-sm font-bold text-slate-500">Dosis</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 font-medium mt-1">
-                        Total suntikan vaksin dalam periode ini
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                      <Activity size={22} />
-                    </div>
-                  </div>
-
-                  {/* Breakdown per vaccine */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5">
-                    {Object.entries(usageStats.perVaccine).map(([name, count]) => {
-                      const isPolio = name.toLowerCase().includes('polio');
-                      const polioVials = Math.floor(Number(count) / 5);
-                      const polioRem = Number(count) % 5;
-                      return (
-                        <div key={name} className="flex items-center justify-between text-xs">
-                          <span className="text-slate-600 font-medium truncate">{name}:</span>
-                          <div className="text-right">
-                            <span className="font-black text-slate-900">{count} Dosis</span>
-                            {isPolio && (
-                              <span className="text-[10px] text-slate-400 block font-normal">
-                                ({polioVials} vial{polioRem > 0 ? ` + ${polioRem} dosis` : ''} • 1 vial = 5 dosis)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <p className="text-sm font-medium text-slate-500">
+                    Akumulasi Pemakaian
+                  </p>
+                  <h3 className="text-4xl font-bold text-slate-900 tracking-tight mt-2">
+                    {usageStats.totalVaksinTerpakai}
+                  </h3>
+                  <div className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                    <span>Dosis terpakai</span>
+                    <Activity size={15} className="text-emerald-500 shrink-0" />
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2 border-t border-slate-100 text-[10px] text-slate-400 font-medium">
-                  Sinkron akurat dengan tabel laporan harian & register
+                <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5">
+                  {Object.entries(usageStats.perVaccine).map(([name, count]) => {
+                    const shortName = name.replace(/^Vaksin\s+/i, '');
+                    const isPolio = name.toLowerCase().includes('polio');
+                    const polioVials = Math.floor(Number(count) / 5);
+                    const polioRem = Number(count) % 5;
+                    return (
+                      <div
+                        key={name}
+                        className="flex items-center justify-between gap-2 text-xs"
+                        title={isPolio ? '1 vial Polio = 5 dosis' : undefined}
+                      >
+                        <span className="text-slate-500 font-medium truncate">{shortName}</span>
+                        <span className="font-semibold text-slate-800 whitespace-nowrap">
+                          {count} dosis
+                          {isPolio && (
+                            <span className="text-[11px] font-normal text-slate-400 ml-1">
+                              ({polioVials} vial{polioRem > 0 ? `+${polioRem}` : ''})
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2259,20 +2253,17 @@ export default function History() {
                 </div>
               </div>
 
-              {/* Sisa Stok Vaksin Saat Ini */}
+              {/* Stok Fisik Realtime */}
               <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm relative flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-black text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-lg uppercase tracking-wider">
+                  <p className="text-sm font-medium text-slate-500">
                     Stok Fisik Realtime
-                  </span>
-
-                  {/* Total Botol Fisik di Cold Chain */}
+                  </p>
                   {(() => {
                     let totalBotolFisik = 0;
                     vaccines.forEach(v => {
                       const isPol = v.id === 'v2' || v.name.toLowerCase().includes('polio');
                       if (isPol) {
-                        // 1 vial polio = 5 dosis. Jika 57 dosis -> 11 vial utuh + 1 vial terbuka sisa 2 dosis = 12 botol fisik
                         totalBotolFisik += Math.ceil((v.stock || 0) / 5);
                       } else {
                         totalBotolFisik += (v.stock || 0);
@@ -2280,49 +2271,48 @@ export default function History() {
                     });
                     return (
                       <>
-                        <h3 className="text-2xl font-black text-indigo-900 mt-2">
-                          {totalBotolFisik} <span className="text-sm font-bold text-slate-500">Botol Vial Fisik</span>
+                        <h3 className="text-4xl font-bold text-slate-900 tracking-tight mt-2">
+                          {totalBotolFisik}
                         </h3>
-                        <p className="text-xs text-slate-500 font-medium mt-1">
-                          Sisa fisik di cold chain RSUD Al-Mulk
-                        </p>
+                        <div className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600">
+                          <span>Vial tersedia</span>
+                          <Package size={15} className="text-indigo-500 shrink-0" />
+                        </div>
                       </>
                     );
                   })()}
-
-                  <div className="mt-3 pt-2 border-t border-slate-100 space-y-2">
-                    {vaccines.map(v => {
-                      const isPol = v.id === 'v2' || v.name.toLowerCase().includes('polio');
-                      if (isPol) {
-                        const fullVials = Math.floor((v.stock || 0) / 5);
-                        const remDoses = (v.stock || 0) % 5;
-                        return (
-                          <div key={v.id} className="text-xs">
-                            <div className="flex items-center justify-between">
-                              <span className="text-slate-700 font-bold truncate">{v.name}:</span>
-                              <span className="font-black text-indigo-700">{v.stock} Dosis</span>
-                            </div>
-                            <div className="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center justify-between bg-indigo-50/70 px-2 py-1 rounded-lg">
-                              <span>Logika Vial (1 vial = 5 org):</span>
-                              <span className="font-bold text-indigo-900">
-                                {fullVials} vial {remDoses > 0 ? `+ sisa ${remDoses} ds` : 'utuh'}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={v.id} className="flex items-center justify-between text-xs">
-                          <span className="text-slate-600 truncate">{v.name}:</span>
-                          <span className="font-bold text-indigo-700">{v.stock} Vial</span>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
 
-                <div className="mt-3 pt-2 border-t border-slate-100 text-[10px] text-slate-400 font-medium">
-                  Polio dihitung 5 dosis per vial (57 dosis = 11 vial + 2 dosis)
+                <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5">
+                  {vaccines.map(v => {
+                    const shortName = v.name.replace(/^Vaksin\s+/i, '');
+                    const isPol = v.id === 'v2' || v.name.toLowerCase().includes('polio');
+                    if (isPol) {
+                      const fullVials = Math.floor((v.stock || 0) / 5);
+                      const remDoses = (v.stock || 0) % 5;
+                      return (
+                        <div
+                          key={v.id}
+                          className="flex items-center justify-between gap-2 text-xs"
+                          title="1 vial Polio = 5 dosis"
+                        >
+                          <span className="text-slate-500 font-medium truncate">{shortName}</span>
+                          <span className="font-semibold text-slate-800 whitespace-nowrap">
+                            {v.stock} dosis
+                            <span className="text-[11px] font-normal text-slate-400 ml-1">
+                              ({fullVials} vial{remDoses > 0 ? `+${remDoses}` : ''})
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={v.id} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-slate-500 font-medium truncate">{shortName}</span>
+                        <span className="font-semibold text-slate-800 whitespace-nowrap">{v.stock} vial</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
