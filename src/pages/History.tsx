@@ -913,19 +913,46 @@ export default function History() {
 
     // Filter mutasi sesuai periode waktu & filter vaksin yang sama
     const now = new Date();
+    const localYear = now.getFullYear();
+    const localMonth = String(now.getMonth() + 1).padStart(2, '0');
+    const localDay = String(now.getDate()).padStart(2, '0');
+    const currentYearMonth = `${localYear}-${localMonth}`;
+    const todayStr = `${localYear}-${localMonth}-${localDay}`;
+
+    // Hitung ICV terbit bulan berjalan (sinkron dengan data APIIK: "X bulan ini")
+    const icvThisMonth = dailyReports
+      .filter(r => {
+        if (selectedVaccineFilter !== 'all' && r.vaccine_id !== selectedVaccineFilter) return false;
+        return (r.date || '').startsWith(currentYearMonth);
+      })
+      .reduce((sum, r) => sum + (r.icv_issued || 0), 0);
+
+    // Hitung tren kumulatif bulanan ICV untuk grafik sparkline mini pada kartu Total ICV Terbit
+    const monthlyIcvMap = new Map<string, number>();
+    filteredDailyReports.forEach(r => {
+      const ym = (r.date || '').slice(0, 7);
+      if (ym && ym.length === 7) {
+        monthlyIcvMap.set(ym, (monthlyIcvMap.get(ym) || 0) + (r.icv_issued || 0));
+      }
+    });
+    const sortedMonths = Array.from(monthlyIcvMap.keys()).sort();
+    let runningIcv = 0;
+    const icvTrendPoints = sortedMonths.map(ym => {
+      runningIcv += monthlyIcvMap.get(ym) || 0;
+      return runningIcv;
+    });
+
     const filterMutationByPeriod = (m: StockMutation) => {
       if (selectedVaccineFilter !== 'all' && m.vaccine_id !== selectedVaccineFilter) return false;
       if (reportTimePreset === 'today') {
-        const todayStr = now.toISOString().split('T')[0];
         if (m.date !== todayStr) return false;
       } else if (reportTimePreset === '7days') {
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         if (m.date < sevenDaysAgo) return false;
       } else if (reportTimePreset === 'month') {
-        const currentYearMonth = now.toISOString().slice(0, 7);
         if (!m.date.startsWith(currentYearMonth)) return false;
       } else if (reportTimePreset === 'year') {
-        const currentYear = now.getFullYear().toString();
+        const currentYear = String(localYear);
         if (!m.date.startsWith(currentYear)) return false;
       }
       if (reportStartDate && m.date < reportStartDate) return false;
@@ -956,10 +983,12 @@ export default function History() {
     return {
       totalVaksinTerpakai: effectiveTotalVaksinTerpakai,
       totalIcvTerbit: totalTerbitFromReports,
+      icvThisMonth,
+      icvTrendPoints,
       totalDosisMasuk,
       perVaccine
     };
-  }, [filteredDailyReports, stockMutations, vaccines, reportTimePreset, reportStartDate, reportEndDate, selectedVaccineFilter]);
+  }, [dailyReports, filteredDailyReports, stockMutations, vaccines, reportTimePreset, reportStartDate, reportEndDate, selectedVaccineFilter]);
 
   // Export to Excel (Native formatted .xls format with hospital header)
   const handleExportRegisterExcel = () => {
