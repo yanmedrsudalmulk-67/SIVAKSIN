@@ -2191,22 +2191,71 @@ export default function History() {
                 </div>
               </div>
 
-              {/* Total ICV Diterbitkan */}
-              <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] font-black text-blue-800 bg-blue-50 px-2 py-0.5 rounded-lg uppercase tracking-wider">
-                    Sertifikat Terbit
-                  </span>
-                  <h3 className="text-3xl font-black text-blue-700 mt-2">
-                    {usageStats.totalIcvTerbit} <span className="text-sm font-bold text-slate-500">ICV</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium mt-1">
-                    E-ICV internasional selesai diproses
+              {/* Total ICV Terbit */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div className="relative z-10">
+                  <p className="text-sm font-medium text-slate-500">
+                    Total ICV Terbit
                   </p>
+                  <h3 className="text-4xl font-bold text-slate-900 tracking-tight mt-2">
+                    {usageStats.totalIcvTerbit}
+                  </h3>
+                  <div className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600">
+                    <span>{usageStats.icvThisMonth} bulan ini</span>
+                    <svg
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="w-4 h-4 text-blue-500 shrink-0"
+                      aria-hidden="true"
+                    >
+                      <rect x="2.5" y="11" width="3.5" height="6.5" rx="1.2" />
+                      <rect x="8.25" y="7" width="3.5" height="10.5" rx="1.2" />
+                      <rect x="14" y="3" width="3.5" height="14.5" rx="1.2" />
+                    </svg>
+                  </div>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-slate-500">
-                  <span>Status Verifikasi:</span>
-                  <span className="text-emerald-700 font-bold">100% Sah Kemenkes</span>
+
+                {/* Grafik garis tren mini di bagian bawah kartu */}
+                <div className="mt-6 -mx-5 -mb-5 h-10 relative">
+                  {(() => {
+                    const pts = usageStats.icvTrendPoints.length >= 2
+                      ? usageStats.icvTrendPoints
+                      : [0, 0, 0, Math.max(usageStats.totalIcvTerbit, 1)];
+                    const maxVal = Math.max(...pts, 1);
+                    const minVal = Math.min(...pts, 0);
+                    const span = Math.max(maxVal - minVal, 1);
+                    const coords = pts.map((v, i) => {
+                      const x = (i / Math.max(pts.length - 1, 1)) * 200;
+                      const y = 36 - ((v - minVal) / span) * 24;
+                      return `${x.toFixed(1)},${y.toFixed(1)}`;
+                    });
+                    const linePath = `M ${coords.join(' L ')}`;
+                    const areaPath = `${linePath} L 200,40 L 0,40 Z`;
+                    return (
+                      <svg
+                        viewBox="0 0 200 40"
+                        preserveAspectRatio="none"
+                        className="w-full h-full block"
+                        aria-hidden="true"
+                      >
+                        <defs>
+                          <linearGradient id="icvSparkGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.16" />
+                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.01" />
+                          </linearGradient>
+                        </defs>
+                        <path d={areaPath} fill="url(#icvSparkGrad)" />
+                        <path
+                          d={linePath}
+                          fill="none"
+                          stroke="#2563eb"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -2277,18 +2326,27 @@ export default function History() {
                 </div>
               </div>
 
-              {/* Sisa Stok ICV / E-ICV */}
+              {/* Sisa ICV */}
               <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-black text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg uppercase tracking-wider">
-                    Stok ICV / E-ICV
-                  </span>
-                  <h3 className="text-3xl font-black text-amber-600 mt-2">
-                    {eicvStock || 18} <span className="text-sm font-bold text-slate-500">ICV / E-ICV</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium mt-1">
-                    Sisa ICV dan E-ICV siap cetak
+                  <p className="text-sm font-medium text-slate-500">
+                    Sisa ICV
                   </p>
+                  <h3 className="text-4xl font-bold text-slate-900 tracking-tight mt-2">
+                    {eicvStock ?? 18}
+                  </h3>
+                  <div className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-medium text-amber-600">
+                    <span>ICV tersedia</span>
+                    <svg
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="w-4 h-4 text-amber-500 shrink-0"
+                      aria-hidden="true"
+                    >
+                      <path d="M5.5 2.5A1.5 1.5 0 0 1 7 1h5.379a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 1 .439 1.061V13.5A1.5 1.5 0 0 1 14.5 15H14V6.621a2.5 2.5 0 0 0-.732-1.768l-2.121-2.12A2.5 2.5 0 0 0 9.379 2H5.5v.5Z" />
+                      <path fillRule="evenodd" d="M3 5.5A1.5 1.5 0 0 1 4.5 4h4.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 1 .439 1.061V17.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 17.5v-12Zm3 4.25a.75.75 0 0 0 0 1.5h4a.75.75 0 0 0 0-1.5H6Zm0 3a.75.75 0 0 0 0 1.5h4a.75.75 0 0 0 0-1.5H6Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
